@@ -1,39 +1,61 @@
-﻿# Event Booking Platform
+# Event Booking Platform
 
-## Overview
-Website design and scaffolding for an event ticket booking platform.
+Nền tảng đặt vé sự kiện được xây dựng nhằm mục đích cung cấp giải pháp đặt vé, quản lý sự kiện và nghệ sĩ với khả năng mở rộng cao, phục vụ traffic lớn.
 
-- Frontend: React + TypeScript + Vite
-- Backend: Python + FastAPI
-- Database model: SQLAlchemy / declarative ORM
-- Architecture: clear separation of API, services, models, schema, and frontend UI
+## Công nghệ sử dụng (Tech Stack)
 
-## Project structure
+- **Backend**: Python 3, FastAPI, SQLAlchemy (ORM), Alembic (Migrations).
+- **Frontend**: React (Vite), TypeScript.
+- **Database**: PostgreSQL (Dữ liệu quan hệ chính).
+- **Cache / Queue**: Redis (Giữ chỗ vé, cache danh sách sự kiện).
+- **Background Tasks**: Celery (Gửi Email/SMS vé điện tử).
 
-- ackend/
-  - pp/ - backend source code
-  - 	ests/ - backend tests
-  - equirements.txt - Python dependencies
-- rontend/
-  - src/ - React TypeScript source
-  - public/ - static HTML entry
-  - package.json - package definition
-- docs/ - architecture, DFD, ER, use cases
+## Cấu trúc dự án sơ bộ
 
-## How to start
+Dự án được chia thành 2 module độc lập:
+- `/backend`: Chứa mã nguồn API Server (FastAPI).
+- `/frontend`: Chứa mã nguồn Web App (Vite React).
+- `/docs`: Chứa các tài liệu phân tích thiết kế (Usecase, Sequence, DFD, Database Schema).
 
-1. Backend:
-   - Create a Python virtual environment
-   - Install dependencies: pip install -r backend/requirements.txt
-   - Run: uvicorn backend.app.main:app --reload --host 0.0.0.0 --port 8000
+*(Xem thêm file [STRUCTURE.md](./STRUCTURE.md) để hiểu rõ hơn về kiến trúc thư mục chi tiết và luồng dữ liệu).*
 
-2. Frontend:
-   - Install dependencies in rontend/: 
-pm install
-   - Run: 
-pm run dev
+## Hướng dẫn cài đặt (Môi trường phát triển)
 
-## Notes
+### 1. Backend (FastAPI)
 
-- The current skeleton implements placeholders for event and ticket APIs.
-- Full business logic, payment integration, notification, and persistence are designed but not yet implemented.
+```bash
+cd backend
+
+# 1. Tạo môi trường ảo (Virtual Environment)
+python -m venv venv
+# Active trên Windows:
+.\venv\Scripts\activate
+# Active trên Mac/Linux:
+source venv/bin/activate
+
+# 2. Cài đặt thư viện
+pip install -r requirements.txt
+
+# 3. Chạy server phát triển (Port 8000)
+uvicorn app.main:app --reload
+```
+
+> **Lưu ý**: Cần cài đặt và chạy PostgreSQL + Redis để API hoạt động đầy đủ. API Docs (Swagger) sẽ có mặt tại `http://localhost:8000/docs`.
+
+### 2. Frontend (Vite React)
+
+```bash
+cd frontend
+
+# 1. Cài đặt các gói phụ thuộc
+npm install
+
+# 2. Chạy ứng dụng phát triển (Port 5173 mặc định)
+npm run dev
+```
+
+## Các tính năng chính (Roadmap)
+- [ ] Quản lý Sự kiện & Địa điểm (Kèm cấu hình giá vé).
+- [ ] Quản lý Nghệ sĩ & Backup (Ít nhất 2 nghệ sĩ dự phòng).
+- [ ] Luồng Đặt vé & Thanh toán (Giữ chỗ tạm thời để tránh Overselling).
+- [ ] Tự động hoàn tiền khi sự kiện bị hủy.
