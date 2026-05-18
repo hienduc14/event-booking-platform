@@ -57,3 +57,12 @@ Dự án sử dụng Vite React với cấu trúc chia theo Feature/Domain cơ b
    - Cập nhật UI tại `components/` và `pages/`.
 
 Bám sát quy trình này sẽ giúp cấu trúc code luôn rõ ràng, dễ bảo trì, và thuận lợi cho việc scale hệ thống lên các module lớn hơn (Payment, Notification, CMS) sau này.
+
+---
+
+## Cấu trúc Cấu hình Workspace (`/.vscode`)
+
+Dự án có đi kèm các thiết lập đặc biệt cho Visual Studio Code nằm trong file `.vscode/settings.json` nhằm mang lại trải nghiệm phát triển mượt mà nhất:
+- **`python.analysis.extraPaths`**: Giúp Pylance (trình phân tích code Python) hiểu rằng thư mục `backend` là root của mã nguồn Python, từ đó gỡ bỏ các lỗi import ảo như `from app.models...`.
+- **`python.defaultInterpreterPath`**: Ép VS Code luôn ưu tiên sử dụng môi trường ảo (`venv`) nằm trong thư mục `backend` ngay khi khởi động.
+- **`terminal.integrated.defaultProfile.windows`**: Chuyển mặc định Terminal trên Windows sang **Command Prompt (CMD)**, giúp vượt qua các giới hạn *Execution Policy* thường gặp của PowerShell khi kích hoạt môi trường ảo.
