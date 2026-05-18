@@ -14,9 +14,9 @@ class EventScheduleRead(BaseModel):
     schedule_id: int
     event_id: int
     venue_id: int
-    status: str
-    created_at: datetime
-    updated_at: datetime
+    status: str = "ACTIVE"
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
 
@@ -30,15 +30,14 @@ class EventDayCreate(BaseModel):
 
 class EventDayUpdate(BaseModel):
     date: Optional[datetime] = None
-    status: Optional[str] = None
 
 
 class EventDayRead(BaseModel):
     event_day_id: int
     schedule_id: int
     date: datetime
-    status: str
-    created_at: datetime
-    updated_at: datetime
+    status: str = "ACTIVE"
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}

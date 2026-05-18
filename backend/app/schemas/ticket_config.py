@@ -38,7 +38,7 @@ class TicketConfigRead(TicketConfigBase):
     config_id: int
     schedule_id: int
     remaining_quantity: Optional[int] = None  # computed field
-    created_at: datetime
-    updated_at: datetime
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}

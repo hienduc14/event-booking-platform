@@ -1,5 +1,4 @@
-from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from app.db.base import Base
 
@@ -9,13 +8,29 @@ class EventDay(Base):
     __tablename__ = "event_days"
 
     event_day_id = Column(Integer, primary_key=True, index=True)
-    schedule_id = Column(Integer, ForeignKey("event_schedules.schedule_id", ondelete="CASCADE"), nullable=False, index=True)
-    date = Column(DateTime(timezone=True), nullable=False)
-    status = Column(String(50), nullable=False, default="ACTIVE")
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    event_schedule_id = Column(Integer, ForeignKey("event_schedules.schedule_id", ondelete="CASCADE"), nullable=False, index=True)
+    date = Column(DateTime, nullable=False)
 
-    # Relationships
     schedule = relationship("EventSchedule", back_populates="event_days")
     event_artists = relationship("EventArtist", back_populates="event_day", cascade="all, delete-orphan")
     booking_details = relationship("BookingDetail", back_populates="event_day")
+
+    @property
+    def schedule_id(self):
+        return self.event_schedule_id
+
+    @schedule_id.setter
+    def schedule_id(self, value):
+        self.event_schedule_id = value
+
+    @property
+    def status(self):
+        return "ACTIVE"
+
+    @property
+    def created_at(self):
+        return None
+
+    @property
+    def updated_at(self):
+        return None

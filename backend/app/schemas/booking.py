@@ -55,8 +55,8 @@ class BookingRead(BaseModel):
     booking_status: str
     total_amount: Decimal
     expires_at: Optional[datetime] = None
-    created_at: datetime
-    updated_at: datetime
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
     booking_details: List[BookingDetailRead] = []
 
     model_config = {"from_attributes": True}
@@ -71,6 +71,6 @@ class BookingListItem(BaseModel):
     phone: str
     booking_status: str
     total_amount: Decimal
-    created_at: datetime
+    created_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}

@@ -6,7 +6,7 @@ from app.schemas.artist import ArtistCreate, ArtistUpdate, EventArtistCreate
 
 
 def create_artist(db: Session, obj_in: ArtistCreate) -> Artist:
-    db_obj = Artist(**obj_in.model_dump())
+    db_obj = Artist(**obj_in.model_dump(exclude={"bio", "image_url"}, exclude_none=True))
     db.add(db_obj)
     db.commit()
     db.refresh(db_obj)
@@ -22,7 +22,7 @@ def get_artists(db: Session, skip: int = 0, limit: int = 100) -> List[Artist]:
 
 
 def update_artist(db: Session, db_obj: Artist, obj_in: ArtistUpdate) -> Artist:
-    update_data = obj_in.model_dump(exclude_unset=True)
+    update_data = obj_in.model_dump(exclude_unset=True, exclude={"bio", "image_url"})
     for field, value in update_data.items():
         setattr(db_obj, field, value)
     db.commit()

@@ -1,5 +1,5 @@
-from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, Text, Numeric, DateTime, ForeignKey
+from decimal import Decimal
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from app.db.base import Base
 
@@ -15,19 +15,44 @@ class Booking(Base):
     customer_name = Column(String(255), nullable=False)
     phone = Column(String(50), nullable=False)
     email = Column(String(255), nullable=False)
-    payment_account = Column(Text, nullable=False)  # bank account for refunds
+    payment_account = Column(Text, nullable=True)
 
-    # Status
-    booking_status = Column(String(50), nullable=False, default="PENDING_PAYMENT")
-    # Booking statuses: PENDING_PAYMENT | PAID | PAYMENT_FAILED | CANCELLED | REFUNDING | REFUNDED | REFUND_FAILED
+    payment_status = Column(String(50), nullable=True, default="Pending")
+    created_at = Column(DateTime, nullable=True)
 
-    total_amount = Column(Numeric(12, 2), nullable=False, default=0)
-    expires_at = Column(DateTime(timezone=True), nullable=True)  # reservation expiry
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
-
-    # Relationships
     schedule = relationship("EventSchedule", back_populates="bookings")
     booking_details = relationship("BookingDetail", back_populates="booking", cascade="all, delete-orphan")
-    payment_transactions = relationship("PaymentTransaction", back_populates="booking")
-    refund_transactions = relationship("RefundTransaction", back_populates="booking")
+
+    @property
+    def booking_status(self):
+        status_map = {
+            "Pending": "PENDING_PAYMENT",
+            "Paid": "PAID",
+            "Failed": "PAYMENT_FAILED",
+            "Refunding": "REFUNDING",
+            "Refunded": "REFUNDED",
+        }
+        return status_map.get(self.payment_status, self.payment_status or "PENDING_PAYMENT")
+
+    @booking_status.setter
+    def booking_status(self, value):
+        status_map = {
+            "PENDING_PAYMENT": "Pending",
+            "PAID": "Paid",
+            "PAYMENT_FAILED": "Failed",
+            "REFUNDING": "Refunding",
+            "REFUNDED": "Refunded",
+        }
+        self.payment_status = status_map.get(value, value)
+
+    @property
+    def total_amount(self):
+        return sum((detail.subtotal for detail in self.booking_details), Decimal("0"))
+
+    @property
+    def expires_at(self):
+        return None
+
+    @property
+    def updated_at(self):
+        return self.created_at

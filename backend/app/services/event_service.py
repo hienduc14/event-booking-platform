@@ -11,7 +11,7 @@ from app.models.booking_detail import BookingDetail
 
 
 def get_event_list(db: Session, skip: int = 0, limit: int = 100) -> List[Event]:
-    return db.query(Event).filter(Event.status == "ACTIVE").offset(skip).limit(limit).all()
+    return db.query(Event).offset(skip).limit(limit).all()
 
 
 def get_event_detail(db: Session, event_id: int) -> Optional[Event]:
@@ -31,7 +31,7 @@ def calculate_remaining_tickets(db: Session, schedule_id: int, event_day_id: int
     sold_query = db.query(func.sum(BookingDetail.quantity)).join(Booking).filter(
         BookingDetail.config_id == config_id,
         BookingDetail.event_day_id == event_day_id,
-        Booking.booking_status.in_(["PAID", "PENDING_PAYMENT"])
+        Booking.payment_status.in_(["Paid", "Pending", "PAID", "PENDING_PAYMENT"])
     )
     sold = sold_query.scalar() or 0
 

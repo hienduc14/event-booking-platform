@@ -8,7 +8,7 @@ from pydantic import BaseModel
 class EventBase(BaseModel):
     event_name: str
     description: Optional[str] = None
-    banner_url: Optional[str] = None
+    number_of_days: Optional[int] = None
 
 
 class EventCreate(EventBase):
@@ -18,15 +18,15 @@ class EventCreate(EventBase):
 class EventUpdate(BaseModel):
     event_name: Optional[str] = None
     description: Optional[str] = None
-    banner_url: Optional[str] = None
-    status: Optional[str] = None
+    number_of_days: Optional[int] = None
 
 
 class EventRead(EventBase):
     event_id: int
-    status: str
-    created_at: datetime
-    updated_at: datetime
+    banner_url: Optional[str] = None
+    status: str = "ACTIVE"
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
 
@@ -35,7 +35,8 @@ class EventListItem(BaseModel):
     event_id: int
     event_name: str
     description: Optional[str] = None
+    number_of_days: Optional[int] = None
     banner_url: Optional[str] = None
-    status: str
+    status: str = "ACTIVE"
 
     model_config = {"from_attributes": True}

@@ -8,8 +8,6 @@ from app.models.ticket_config import TicketConfig
 from app.models.booking import Booking
 from app.models.booking_detail import BookingDetail
 from app.models.e_ticket import ETicket
-from app.models.payment_transaction import PaymentTransaction
-from app.models.refund_transaction import RefundTransaction
 
 __all__ = [
     "Event",
@@ -22,6 +20,4 @@ __all__ = [
     "Booking",
     "BookingDetail",
     "ETicket",
-    "PaymentTransaction",
-    "RefundTransaction",
 ]

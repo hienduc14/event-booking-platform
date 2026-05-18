@@ -5,7 +5,7 @@ from app.schemas.venue import VenueCreate, VenueUpdate
 
 
 def create_venue(db: Session, obj_in: VenueCreate) -> Venue:
-    db_obj = Venue(**obj_in.model_dump())
+    db_obj = Venue(**obj_in.model_dump(exclude={"address"}, exclude_none=True))
     db.add(db_obj)
     db.commit()
     db.refresh(db_obj)
@@ -21,7 +21,7 @@ def get_venues(db: Session, skip: int = 0, limit: int = 100) -> List[Venue]:
 
 
 def update_venue(db: Session, db_obj: Venue, obj_in: VenueUpdate) -> Venue:
-    update_data = obj_in.model_dump(exclude_unset=True)
+    update_data = obj_in.model_dump(exclude_unset=True, exclude={"address"})
     for field, value in update_data.items():
         setattr(db_obj, field, value)
     db.commit()

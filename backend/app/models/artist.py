@@ -1,5 +1,4 @@
-from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, Text, DateTime
+from sqlalchemy import Column, Integer, String
 from sqlalchemy.orm import relationship
 from app.db.base import Base
 
@@ -9,10 +8,21 @@ class Artist(Base):
 
     artist_id = Column(Integer, primary_key=True, index=True)
     artist_name = Column(String(255), nullable=False)
-    bio = Column(Text, nullable=True)
-    image_url = Column(Text, nullable=True)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
-    # Relationships
     event_artists = relationship("EventArtist", back_populates="artist")
+
+    @property
+    def bio(self):
+        return None
+
+    @property
+    def image_url(self):
+        return None
+
+    @property
+    def created_at(self):
+        return None
+
+    @property
+    def updated_at(self):
+        return None

@@ -24,18 +24,10 @@ def cancel_event(db: Session, event_id: int, reason: str) -> bool:
     event = db.query(Event).filter(Event.event_id == event_id).first()
     if not event:
         return False
-        
-    event.status = "CANCELLED"
-    
-    for schedule in event.schedules:
-        schedule.status = "CANCELLED"
-        for day in schedule.event_days:
-            day.status = "CANCELLED"
-            
-    db.commit()
-    
-    # Needs to trigger refunds for PAID bookings via refund_service
+
+    # schema.sql has no event/schedule/day status columns, so cancellation is
+    # represented only by moving paid bookings to a refunding state.
     from app.services.refund_service import create_refund_requests_for_event
     create_refund_requests_for_event(db, event_id, reason)
-    
+
     return True

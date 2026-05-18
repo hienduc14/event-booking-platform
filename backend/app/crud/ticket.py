@@ -13,9 +13,7 @@ def get_tickets_by_booking(db: Session, booking_id: int) -> List[ETicket]:
 
 
 def mark_ticket_used(db: Session, db_obj: ETicket) -> ETicket:
-    from datetime import datetime, timezone
-    db_obj.ticket_status = "USED"
-    db_obj.used_at = datetime.now(timezone.utc)
+    db_obj.ticket_status = "Used"
     db.commit()
     db.refresh(db_obj)
     return db_obj

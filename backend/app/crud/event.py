@@ -6,7 +6,7 @@ from app.schemas.event import EventCreate, EventUpdate
 
 
 def create_event(db: Session, obj_in: EventCreate) -> Event:
-    db_obj = Event(**obj_in.model_dump())
+    db_obj = Event(**obj_in.model_dump(exclude={"banner_url", "status"}, exclude_none=True))
     db.add(db_obj)
     db.commit()
     db.refresh(db_obj)
@@ -22,7 +22,7 @@ def get_events(db: Session, skip: int = 0, limit: int = 100) -> List[Event]:
 
 
 def update_event(db: Session, db_obj: Event, obj_in: EventUpdate) -> Event:
-    update_data = obj_in.model_dump(exclude_unset=True)
+    update_data = obj_in.model_dump(exclude_unset=True, exclude={"banner_url", "status"})
     for field, value in update_data.items():
         setattr(db_obj, field, value)
     db.commit()
@@ -31,7 +31,5 @@ def update_event(db: Session, db_obj: Event, obj_in: EventUpdate) -> Event:
 
 
 def cancel_event(db: Session, db_obj: Event) -> Event:
-    db_obj.status = "CANCELLED"
-    db.commit()
-    db.refresh(db_obj)
+    # schema.sql has no persisted event status column.
     return db_obj

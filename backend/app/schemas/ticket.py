@@ -8,10 +8,10 @@ class ETicketRead(BaseModel):
     booking_detail_id: int
     ticket_status: str
     qr_code_url: Optional[str] = None
-    issued_at: datetime
+    issued_at: Optional[datetime] = None
     used_at: Optional[datetime] = None
-    created_at: datetime
-    updated_at: datetime
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
 
