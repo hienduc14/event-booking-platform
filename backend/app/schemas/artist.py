@@ -1,16 +1,43 @@
-from pydantic import BaseModel
+from datetime import datetime
 from typing import Optional
+from pydantic import BaseModel
+
 
 class ArtistBase(BaseModel):
-    name: str
-    biography: Optional[str] = None
+    artist_name: str
+    bio: Optional[str] = None
     image_url: Optional[str] = None
+
 
 class ArtistCreate(ArtistBase):
     pass
 
-class ArtistRead(ArtistBase):
-    id: int
 
-    class Config:
-        from_attributes = True
+class ArtistUpdate(BaseModel):
+    artist_name: Optional[str] = None
+    bio: Optional[str] = None
+    image_url: Optional[str] = None
+
+
+class ArtistRead(ArtistBase):
+    artist_id: int
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class EventArtistCreate(BaseModel):
+    event_day_id: int
+    artist_id: int
+    is_backup: bool = False
+
+
+class EventArtistRead(BaseModel):
+    event_artist_id: int
+    event_day_id: int
+    artist_id: int
+    artist_name: str
+    is_backup: bool
+
+    model_config = {"from_attributes": True}

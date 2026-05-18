@@ -1,25 +1,24 @@
-from pydantic import BaseModel
+from datetime import datetime
 from typing import Optional
-from enum import Enum
+from pydantic import BaseModel
 
-class TicketType(str, Enum):
-    gold = "gold"
-    silver = "silver"
-    bronze = "bronze"
-    plastic = "plastic"
-    vip = "vip"
 
-class TicketCreate(BaseModel):
-    code: str
-    type: TicketType
-    event_day_id: int
-    customer_name: Optional[str] = None
-    customer_email: Optional[str] = None
-    customer_phone: Optional[str] = None
+class ETicketRead(BaseModel):
+    ticket_code: str
+    booking_detail_id: int
+    ticket_status: str
+    qr_code_url: Optional[str] = None
+    issued_at: datetime
+    used_at: Optional[datetime] = None
+    created_at: datetime
+    updated_at: datetime
 
-class TicketRead(TicketCreate):
-    id: int
-    status: str
+    model_config = {"from_attributes": True}
 
-    class Config:
-        from_attributes = True
+
+class ETicketDetailRead(ETicketRead):
+    event_name: str
+    venue_name: str
+    date: datetime
+    ticket_type: str
+    customer_name: str
