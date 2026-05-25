@@ -13,7 +13,13 @@ export function TicketCard({ ticket }: { ticket: ETicket }) {
           <h3>{ticket.ticket_code}</h3>
           <Badge>{ticket.ticket_status}</Badge>
         </div>
-        <p>Booking detail #{ticket.booking_detail_id}</p>
+        <p>
+          {ticket.event_name || "Event"} • {ticket.venue_name || "Venue"}
+        </p>
+        <p>
+          Seat {ticket.row_label}
+          {ticket.col_number} • {ticket.ticket_type || "Ticket"}
+        </p>
         <p>Issued at {formatDateTime(ticket.issued_at)}</p>
       </div>
     </article>

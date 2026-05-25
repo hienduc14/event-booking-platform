@@ -21,7 +21,9 @@ class Booking(Base):
     created_at = Column(DateTime, nullable=True)
 
     schedule = relationship("EventSchedule", back_populates="bookings")
-    booking_details = relationship("BookingDetail", back_populates="booking", cascade="all, delete-orphan")
+    e_tickets = relationship("ETicket", back_populates="booking")
+    payment_transactions = relationship("PaymentTransaction", back_populates="booking")
+    refund_transactions = relationship("RefundTransaction", back_populates="booking")
 
     @property
     def booking_status(self):
@@ -47,7 +49,7 @@ class Booking(Base):
 
     @property
     def total_amount(self):
-        return sum((detail.subtotal for detail in self.booking_details), Decimal("0"))
+        return sum((Decimal(str(ticket.ticket_config.price)) for ticket in self.e_tickets if ticket.ticket_config), Decimal("0"))
 
     @property
     def expires_at(self):

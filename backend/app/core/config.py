@@ -6,15 +6,6 @@ class Settings(BaseSettings):
     # Database
     database_url: str = "postgresql+pg8000://postgres:password@localhost:5432/event_booking"
 
-    # JWT Auth (Admin)
-    secret_key: str = "change-me-in-production-super-secret-key"
-    algorithm: str = "HS256"
-    access_token_expire_minutes: int = 480  # 8 hours
-
-    # Admin credentials (single admin account)
-    admin_username: str = "admin"
-    admin_password: str = "admin123"
-
     # SMTP Email
     smtp_host: str = "smtp.gmail.com"
     smtp_port: int = 587

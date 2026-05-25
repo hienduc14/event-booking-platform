@@ -1,34 +1,38 @@
-import { formatCurrency } from "../../utils/format";
+import type { EventDay, EventSchedule, EventSeat } from "../../types/event";
+import { formatCurrency, formatDateTime } from "../../utils/format";
 
 export function BookingSummary({
-  scheduleId,
-  eventDayId,
-  items,
+  schedule,
+  eventDay,
+  selectedTickets,
 }: {
-  scheduleId: number;
-  eventDayId: number;
-  items: Array<{ config_id: number; quantity: number; price?: number }>;
+  schedule: EventSchedule | null;
+  eventDay: EventDay | null;
+  selectedTickets: EventSeat[];
 }) {
-  const estimatedTotal = items.reduce((sum, item) => sum + (item.price || 0) * item.quantity, 0);
+  const estimatedTotal = selectedTickets.reduce((sum, ticket) => sum + Number(ticket.price || 0), 0);
 
   return (
     <aside className="summary-panel">
       <h2>Booking summary</h2>
       <dl>
         <div>
-          <dt>Schedule ID</dt>
-          <dd>{scheduleId || "Not set"}</dd>
+          <dt>Venue</dt>
+          <dd>{schedule?.venue.venue_name || "Select a schedule"}</dd>
         </div>
         <div>
-          <dt>Event day ID</dt>
-          <dd>{eventDayId || "Not set"}</dd>
+          <dt>Show date</dt>
+          <dd>{eventDay ? formatDateTime(eventDay.date) : "Select a day"}</dd>
         </div>
       </dl>
       <div className="summary-list">
-        {items.map((item, index) => (
-          <div key={`${item.config_id}-${index}`} className="summary-row">
-            <span>Config #{item.config_id || "?"}</span>
-            <strong>x{item.quantity}</strong>
+        {selectedTickets.map((ticket) => (
+          <div key={ticket.ticket_id} className="summary-row">
+            <span>
+              {ticket.ticket_type} • Seat {ticket.row_label}
+              {ticket.col_number}
+            </span>
+            <strong>{formatCurrency(ticket.price || 0)}</strong>
           </div>
         ))}
       </div>
@@ -41,4 +45,3 @@ export function BookingSummary({
     </aside>
   );
 }
-

@@ -1,3 +1,5 @@
+import type { ETicket } from "./ticket";
+
 export type BookingStatus =
   | "PENDING_PAYMENT"
   | "PAID"
@@ -8,11 +10,6 @@ export type BookingStatus =
   | "REFUND_FAILED"
   | string;
 
-export type BookingItem = {
-  config_id: number;
-  quantity: number;
-};
-
 export type ReservationRequest = {
   customer_name: string;
   phone: string;
@@ -20,16 +17,7 @@ export type ReservationRequest = {
   payment_account: string;
   schedule_id: number;
   event_day_id: number;
-  items: BookingItem[];
-};
-
-export type BookingDetailRead = {
-  booking_detail_id: number;
-  config_id: number;
-  event_day_id: number;
-  quantity: number;
-  unit_price: string | number;
-  subtotal: string | number;
+  ticket_ids: number[];
 };
 
 export type BookingRead = {
@@ -42,9 +30,9 @@ export type BookingRead = {
   booking_status: BookingStatus;
   total_amount: string | number;
   expires_at?: string | null;
-  created_at: string;
-  updated_at: string;
-  booking_details: BookingDetailRead[];
+  created_at?: string | null;
+  updated_at?: string | null;
+  e_tickets: ETicket[];
 };
 
 export type BookingListItem = {
@@ -54,6 +42,5 @@ export type BookingListItem = {
   phone: string;
   booking_status: BookingStatus;
   total_amount: string | number;
-  created_at: string;
+  created_at?: string | null;
 };
-

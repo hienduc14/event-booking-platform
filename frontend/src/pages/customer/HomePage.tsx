@@ -21,9 +21,6 @@ function HomePage() {
             <Link className="button button-primary" to="/events">
               Browse events
             </Link>
-            <Link className="button button-secondary" to="/admin/login">
-              Admin login
-            </Link>
           </div>
         </div>
       </section>

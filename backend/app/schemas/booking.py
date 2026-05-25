@@ -1,24 +1,11 @@
 from datetime import datetime
-from typing import Optional, List
 from decimal import Decimal
+from typing import List, Optional
+
 from pydantic import BaseModel, EmailStr, field_validator
 
+from app.schemas.ticket import ETicketRead
 
-# ── Booking Item (one line in booking) ─────────────────────────
-
-class BookingItem(BaseModel):
-    config_id: int
-    quantity: int
-
-    @field_validator("quantity")
-    @classmethod
-    def quantity_positive(cls, v: int) -> int:
-        if v <= 0:
-            raise ValueError("quantity must be > 0")
-        return v
-
-
-# ── Reservation Request (POST /api/v1/reservations) ────────────
 
 class ReservationRequest(BaseModel):
     customer_name: str
@@ -27,23 +14,15 @@ class ReservationRequest(BaseModel):
     payment_account: str
     schedule_id: int
     event_day_id: int
-    items: List[BookingItem]
+    ticket_ids: List[int]
 
+    @field_validator("ticket_ids")
+    @classmethod
+    def ticket_ids_required(cls, value: List[int]) -> List[int]:
+        if not value:
+            raise ValueError("Select at least one seat")
+        return value
 
-# ── Booking Detail Read ─────────────────────────────────────────
-
-class BookingDetailRead(BaseModel):
-    booking_detail_id: int
-    config_id: int
-    event_day_id: int
-    quantity: int
-    unit_price: Decimal
-    subtotal: Decimal
-
-    model_config = {"from_attributes": True}
-
-
-# ── Booking Read ────────────────────────────────────────────────
 
 class BookingRead(BaseModel):
     booking_id: int
@@ -51,18 +30,16 @@ class BookingRead(BaseModel):
     customer_name: str
     phone: str
     email: str
-    payment_account: str
+    payment_account: Optional[str] = None
     booking_status: str
     total_amount: Decimal
     expires_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
-    booking_details: List[BookingDetailRead] = []
+    e_tickets: List[ETicketRead] = []
 
     model_config = {"from_attributes": True}
 
-
-# ── Admin Booking List ──────────────────────────────────────────
 
 class BookingListItem(BaseModel):
     booking_id: int

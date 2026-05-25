@@ -1,70 +1,64 @@
+from datetime import datetime, timezone
+from typing import Optional, Tuple
+
 from sqlalchemy.orm import Session
-from typing import List, Optional, Tuple
-from app.schemas.booking import ReservationRequest
+
 from app.models.booking import Booking
-from app.models.booking_detail import BookingDetail
-from app.models.ticket_config import TicketConfig
+from app.models.e_ticket import ETicket
+from app.models.event_day import EventDay
 from app.models.event_schedule import EventSchedule
-from app.services.event_service import calculate_remaining_tickets
+from app.schemas.booking import ReservationRequest
 
 
-def create_reservation(db: Session, request: ReservationRequest) -> Tuple[Booking, Optional[str]]:
-    # Validate schedule and event
-    schedule = db.query(EventSchedule).filter(
-        EventSchedule.schedule_id == request.schedule_id
-    ).first()
+def create_reservation(db: Session, request: ReservationRequest) -> Tuple[Optional[Booking], Optional[str]]:
+    schedule = db.query(EventSchedule).filter(EventSchedule.schedule_id == request.schedule_id).first()
     if not schedule:
         return None, "Schedule not found"
 
-    # Using explicit transaction block (FastAPI session is auto-commit=False)
-    # We will compute total amount and validate remaining quantity
-    details = []
+    event_day = db.query(EventDay).filter(EventDay.event_day_id == request.event_day_id).first()
+    if not event_day or event_day.event_schedule_id != request.schedule_id:
+        return None, "Event day does not belong to the selected schedule"
 
-    # Lock ticket configs to prevent concurrent overselling for the same configs
-    config_ids = [item.config_id for item in request.items]
-    configs = db.query(TicketConfig).filter(
-        TicketConfig.config_id.in_(config_ids)
-    ).with_for_update().all()
-    
-    config_map = {c.config_id: c for c in configs}
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    if schedule.registration_start and now < schedule.registration_start:
+        return None, "Ticket sales for this schedule have not started yet"
+    if schedule.registration_end and now > schedule.registration_end:
+        return None, "Ticket sales for this schedule have ended"
 
-    for item in request.items:
-        if item.config_id not in config_map:
+    unique_ticket_ids = list(dict.fromkeys(request.ticket_ids))
+    selected_tickets = (
+        db.query(ETicket)
+        .filter(ETicket.ticket_id.in_(unique_ticket_ids))
+        .with_for_update()
+        .all()
+    )
+
+    if len(selected_tickets) != len(unique_ticket_ids):
+        db.rollback()
+        return None, "One or more selected seats no longer exist"
+
+    for ticket in selected_tickets:
+        if ticket.event_day_id != request.event_day_id:
             db.rollback()
-            return None, f"Invalid ticket config {item.config_id}"
-            
-        config = config_map[item.config_id]
-        if config.schedule_id != request.schedule_id:
+            return None, "Selected seats must belong to the same event day"
+        if ticket.ticket_status != "Available" or ticket.booking_id is not None:
             db.rollback()
-            return None, f"Ticket config {item.config_id} does not belong to the selected schedule"
+            return None, f"Seat {ticket.row_label or ''}{ticket.col_number or ''} is no longer available"
 
-        remaining = calculate_remaining_tickets(db, request.schedule_id, request.event_day_id, item.config_id)
-        if remaining < item.quantity:
-            db.rollback()
-            return None, f"Not enough tickets for {config.ticket_type}. Remaining: {remaining}"
-
-        details.append(BookingDetail(
-            config_id=item.config_id,
-            event_day_id=request.event_day_id,
-            quantity=item.quantity
-        ))
-
-    # Create Booking
     booking = Booking(
         schedule_id=request.schedule_id,
         customer_name=request.customer_name,
         phone=request.phone,
         email=request.email,
         payment_account=request.payment_account,
-        payment_status="Pending"
+        payment_status="Pending",
     )
-    
     db.add(booking)
-    db.flush() # get booking_id
+    db.flush()
 
-    for d in details:
-        d.booking_id = booking.booking_id
-        db.add(d)
+    for ticket in selected_tickets:
+        ticket.booking_id = booking.booking_id
+        ticket.ticket_status = "Holding"
 
     db.commit()
     db.refresh(booking)
@@ -72,5 +66,4 @@ def create_reservation(db: Session, request: ReservationRequest) -> Tuple[Bookin
 
 
 def cancel_expired_reservations(db: Session):
-    """schema.sql has no reservation expiry column, so there is nothing to cancel."""
     return 0

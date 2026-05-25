@@ -10,7 +10,6 @@ export function CustomerLayout() {
         <nav className="site-nav">
           <NavLink to="/events">Events</NavLink>
           <NavLink to="/tickets/lookup">Ticket lookup</NavLink>
-          <NavLink to="/admin">Admin</NavLink>
         </nav>
       </header>
       <main className="main-content">
