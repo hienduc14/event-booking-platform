@@ -14,7 +14,7 @@ class TicketConfig(Base):
     max_quantity = Column(Integer, nullable=False)
 
     schedule = relationship("EventSchedule", back_populates="ticket_configs")
-    booking_details = relationship("BookingDetail", back_populates="ticket_config")
+    e_tickets = relationship("ETicket", back_populates="ticket_config", cascade="all, delete-orphan")
 
     @property
     def remaining_quantity(self):

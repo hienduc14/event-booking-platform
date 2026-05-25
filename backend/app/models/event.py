@@ -10,16 +10,10 @@ class Event(Base):
     event_name = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
     number_of_days = Column(Integer, nullable=True)
+    banner_url = Column(Text, nullable=True)
+    status = Column(String(50), nullable=False, default="ACTIVE")
 
     schedules = relationship("EventSchedule", back_populates="event", cascade="all, delete-orphan")
-
-    @property
-    def banner_url(self):
-        return None
-
-    @property
-    def status(self):
-        return "ACTIVE"
 
     @property
     def created_at(self):

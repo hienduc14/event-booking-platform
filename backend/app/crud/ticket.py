@@ -8,8 +8,7 @@ def get_ticket_by_code(db: Session, ticket_code: str) -> Optional[ETicket]:
 
 
 def get_tickets_by_booking(db: Session, booking_id: int) -> List[ETicket]:
-    from app.models.booking_detail import BookingDetail
-    return db.query(ETicket).join(BookingDetail).filter(BookingDetail.booking_id == booking_id).all()
+    return db.query(ETicket).filter(ETicket.booking_id == booking_id).all()
 
 
 def mark_ticket_used(db: Session, db_obj: ETicket) -> ETicket:
