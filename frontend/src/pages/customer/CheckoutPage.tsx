@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
-import { createPayment, sendPaymentWebhook } from "../../api/payments";
+import { createPayment, processPayment } from "../../api/payments";
 import { Badge } from "../../components/common/Badge";
 import { Button } from "../../components/common/Button";
 import { PageHeader } from "../../components/common/PageHeader";
 import type { BookingRead } from "../../types/booking";
-import type { PaymentRead } from "../../types/payment";
+import type { PaymentMethod, PaymentProcessResult, PaymentRead } from "../../types/payment";
 import { formatCurrency, formatDateTime } from "../../utils/format";
 
 function CheckoutPage() {
@@ -13,36 +13,53 @@ function CheckoutPage() {
   const location = useLocation();
   const booking = (location.state as { booking?: BookingRead } | null)?.booking;
   const [payment, setPayment] = useState<PaymentRead | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("ONLINE_BANKING");
+  const [refundAccount, setRefundAccount] = useState("");
+  const [cardNumber, setCardNumber] = useState("");
+  const [expiration, setExpiration] = useState("");
+  const [cvv, setCvv] = useState("");
+  const [result, setResult] = useState<PaymentProcessResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [webhookMessage, setWebhookMessage] = useState<string | null>(null);
 
-  async function handleCreatePayment() {
-    setLoading(true);
-    setError(null);
-    try {
-      setPayment(await createPayment({ booking_id: bookingId, payment_method: "ONLINE_BANKING" }));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not create payment");
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadPayment() {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await createPayment({ booking_id: bookingId, payment_method: "ONLINE_BANKING" });
+        if (!cancelled) setPayment(data);
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Could not initialize payment");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     }
-  }
 
-  async function handleDemoSuccess() {
-    if (!payment) return;
+    void loadPayment();
+    return () => {
+      cancelled = true;
+    };
+  }, [bookingId]);
+
+  async function handleContinue() {
     setLoading(true);
     setError(null);
+    setResult(null);
     try {
-      const result = await sendPaymentWebhook({
-        transaction_id: `DEMO-${payment.payment_id}`,
-        booking_id: payment.booking_id,
-        status: "SUCCESS",
-        amount: payment.amount,
+      const response = await processPayment({
+        booking_id: bookingId,
+        payment_method: paymentMethod,
+        refund_account: paymentMethod === "ONLINE_BANKING" ? refundAccount : undefined,
+        card_number: paymentMethod === "CARD_PAYMENT" ? cardNumber : undefined,
+        expiration: paymentMethod === "CARD_PAYMENT" ? expiration : undefined,
+        cvv: paymentMethod === "CARD_PAYMENT" ? cvv : undefined,
       });
-      setWebhookMessage(result.message);
+      setResult(response);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not simulate payment");
+      setError(err instanceof Error ? err.message : "Payment processing failed");
     } finally {
       setLoading(false);
     }
@@ -52,8 +69,8 @@ function CheckoutPage() {
     <div className="stack-lg">
       <PageHeader
         eyebrow={`Booking #${bookingId}`}
-        title="Checkout"
-        description="Create a payment transaction and simulate successful webhook for demo."
+        title="Payment"
+        description="Choose online banking or card payment, then continue the checkout flow described in the system design."
       />
       <section className="panel stack-md">
         {booking && (
@@ -64,43 +81,109 @@ function CheckoutPage() {
             </div>
             <div>
               <span>Status</span>
-              <Badge>{booking.booking_status}</Badge>
+              <Badge>{result?.booking_status || booking.booking_status}</Badge>
             </div>
             <div>
               <span>Total</span>
               <strong>{formatCurrency(booking.total_amount)}</strong>
             </div>
             <div>
-              <span>Expires</span>
-              <strong>{formatDateTime(booking.expires_at)}</strong>
+              <span>Created</span>
+              <strong>{formatDateTime(booking.created_at)}</strong>
             </div>
           </div>
         )}
-        {!payment && (
-          <Button type="button" disabled={loading} onClick={() => void handleCreatePayment()}>
-            {loading ? "Creating payment..." : "Create payment"}
-          </Button>
-        )}
+
         {payment && (
-          <div className="payment-box">
-            <div className="row-between">
-              <h2>Payment #{payment.payment_id}</h2>
-              <Badge>{payment.status}</Badge>
+          <>
+            <div className="panel stack-md">
+              <div className="row-between">
+                <h2>Payment method</h2>
+                <Badge>{result?.status || payment.status}</Badge>
+              </div>
+              <p>Amount: {formatCurrency(payment.amount)}</p>
+              <div className="payment-method-switch">
+                <button
+                  type="button"
+                  className={`button ${paymentMethod === "ONLINE_BANKING" ? "button-primary" : "button-secondary"}`}
+                  onClick={() => setPaymentMethod("ONLINE_BANKING")}
+                >
+                  Online banking
+                </button>
+                <button
+                  type="button"
+                  className={`button ${paymentMethod === "CARD_PAYMENT" ? "button-primary" : "button-secondary"}`}
+                  onClick={() => setPaymentMethod("CARD_PAYMENT")}
+                >
+                  Card payment
+                </button>
+              </div>
             </div>
-            <p>Method: {payment.payment_method}</p>
-            <p>Amount: {formatCurrency(payment.amount)}</p>
-            <p className="muted">Backend currently returns transaction only; QR/payment instructions are a backend TODO.</p>
-            <div className="inline-actions">
-              <Button type="button" disabled={loading} onClick={() => void handleDemoSuccess()}>
-                Simulate success webhook
-              </Button>
-              <Link className="button button-secondary" to={`/booking/${bookingId}/tickets`}>
-                View tickets
-              </Link>
-            </div>
+
+            {paymentMethod === "ONLINE_BANKING" ? (
+              <div className="payment-layout">
+                <div className="payment-bank-card">
+                  <h3>Company bank account</h3>
+                  <p><strong>Bank:</strong> {payment.company_bank.bank_name}</p>
+                  <p><strong>Account name:</strong> {payment.company_bank.account_name}</p>
+                  <p><strong>Account number:</strong> {payment.company_bank.account_number}</p>
+                  <img className="payment-qr-image" src={payment.company_bank.qr_code_url} alt="Company payment QR" />
+                </div>
+                <div className="payment-form-card">
+                  <h3>Online banking confirmation</h3>
+                  <p className="muted">
+                    Transfer to the company account above, then provide the refund account that should be used if this event is cancelled.
+                  </p>
+                  <label>
+                    Refund account
+                    <input value={refundAccount} onChange={(event) => setRefundAccount(event.target.value)} placeholder="Your refund bank account" />
+                  </label>
+                  <Button type="button" disabled={loading} onClick={() => void handleContinue()}>
+                    {loading ? "Submitting..." : "Continue"}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="payment-layout">
+                <div className="payment-bank-card">
+                  <h3>Payment summary</h3>
+                  <p>Method: Credit/Debit card</p>
+                  <p>Total due: {formatCurrency(payment.amount)}</p>
+                  <p className="muted">The system will process the card immediately and return the payment result.</p>
+                </div>
+                <div className="payment-form-card">
+                  <h3>Card information</h3>
+                  <label>
+                    Card number
+                    <input value={cardNumber} onChange={(event) => setCardNumber(event.target.value)} placeholder="1234 5678 9012 3456" />
+                  </label>
+                  <div className="payment-inline-fields">
+                    <label>
+                      Expiration
+                      <input value={expiration} onChange={(event) => setExpiration(event.target.value)} placeholder="MM/YY" />
+                    </label>
+                    <label>
+                      CVV
+                      <input value={cvv} onChange={(event) => setCvv(event.target.value)} placeholder="123" />
+                    </label>
+                  </div>
+                  <Button type="button" disabled={loading} onClick={() => void handleContinue()}>
+                    {loading ? "Processing..." : "Continue"}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {result && <div className={result.status === "SUCCESS" ? "success-box" : "state-box"}>{result.message}</div>}
+        {result?.tickets_ready && (
+          <div className="inline-actions">
+            <Link className="button button-secondary" to={`/booking/${bookingId}/tickets`}>
+              View tickets
+            </Link>
           </div>
         )}
-        {webhookMessage && <div className="success-box">{webhookMessage}. Tickets should be generated.</div>}
         {error && <div className="form-error">{error}</div>}
       </section>
     </div>
@@ -108,4 +191,3 @@ function CheckoutPage() {
 }
 
 export default CheckoutPage;
-

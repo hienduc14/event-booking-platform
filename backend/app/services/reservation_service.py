@@ -50,8 +50,9 @@ def create_reservation(db: Session, request: ReservationRequest) -> Tuple[Option
         customer_name=request.customer_name,
         phone=request.phone,
         email=request.email,
-        payment_account=request.payment_account,
+        payment_account=None,
         payment_status="Pending",
+        created_at=now,
     )
     db.add(booking)
     db.flush()
@@ -66,4 +67,27 @@ def create_reservation(db: Session, request: ReservationRequest) -> Tuple[Option
 
 
 def cancel_expired_reservations(db: Session):
-    return 0
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    expired_bookings = (
+        db.query(Booking)
+        .filter(Booking.payment_status == "Pending", Booking.created_at.isnot(None))
+        .all()
+    )
+
+    cancelled_count = 0
+    for booking in expired_bookings:
+        if not booking.expires_at or booking.expires_at > now:
+            continue
+
+        for ticket in booking.e_tickets:
+            if ticket.ticket_status == "Holding":
+                ticket.booking_id = None
+                ticket.ticket_status = "Available"
+
+        booking.payment_status = "Failed"
+        cancelled_count += 1
+
+    if cancelled_count > 0:
+        db.commit()
+
+    return cancelled_count

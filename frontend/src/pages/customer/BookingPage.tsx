@@ -23,7 +23,6 @@ function BookingPage() {
     customer_name: "",
     phone: "",
     email: "",
-    payment_account: "",
     schedule_id: 0,
     event_day_id: 0,
     ticket_ids: [],
@@ -178,11 +177,6 @@ function BookingPage() {
               Email
               <input required type="email" value={form.email} onChange={(eventValue) => setField("email", eventValue.target.value)} />
             </label>
-            <label>
-              Refund payment account
-              <input required value={form.payment_account} onChange={(eventValue) => setField("payment_account", eventValue.target.value)} />
-            </label>
-
             <label>
               Schedule
               <select value={form.schedule_id} onChange={(eventValue) => changeSchedule(Number(eventValue.target.value))}>

@@ -477,6 +477,45 @@ th {
   gap: 0.2rem;
 }
 
+.payment-method-switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.payment-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 360px) 1fr;
+  gap: 1rem;
+}
+
+.payment-bank-card,
+.payment-form-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-muted);
+  padding: 1rem;
+}
+
+.payment-bank-card p,
+.payment-form-card p {
+  margin-bottom: 0.75rem;
+}
+
+.payment-qr-image {
+  width: min(220px, 100%);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  padding: 0.75rem;
+}
+
+.payment-inline-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
 .ticket-card {
   display: grid;
   grid-template-columns: 140px 1fr;
@@ -818,6 +857,7 @@ th {
 
   .detail-hero,
   .two-column,
+  .payment-layout,
   .admin-shell {
     grid-template-columns: 1fr;
   }
@@ -831,6 +871,10 @@ th {
   }
 
   .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .payment-inline-fields {
     grid-template-columns: 1fr;
   }
 

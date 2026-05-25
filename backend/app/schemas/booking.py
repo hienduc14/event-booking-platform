@@ -11,7 +11,6 @@ class ReservationRequest(BaseModel):
     customer_name: str
     phone: str
     email: EmailStr
-    payment_account: str
     schedule_id: int
     event_day_id: int
     ticket_ids: List[int]
