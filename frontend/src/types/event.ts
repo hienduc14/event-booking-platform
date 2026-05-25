@@ -39,6 +39,7 @@ export type EventDay = {
   event_day_id: number;
   schedule_id: number;
   date: string;
+  seats: EventSeat[];
   available_tickets: EventSeat[];
 };
 

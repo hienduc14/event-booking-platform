@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Fragment, useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { getEvent } from "../../api/events";
 import { createReservation } from "../../api/reservations";
 import { BookingSummary } from "../../components/booking/BookingSummary";
@@ -14,7 +14,9 @@ import { formatCurrency, formatDateTime } from "../../utils/format";
 function BookingPage() {
   const eventId = Number(useParams().eventId);
   const navigate = useNavigate();
+  const location = useLocation();
   const { data: event, loading, error: loadError, reload } = useAsync(() => getEvent(eventId), [eventId]);
+  const selectedScheduleIdFromState = (location.state as { selectedScheduleId?: number } | null)?.selectedScheduleId;
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<ReservationRequest>({
@@ -29,15 +31,16 @@ function BookingPage() {
 
   useEffect(() => {
     if (!event || event.schedules.length === 0 || form.schedule_id) return;
-    const firstSchedule = event.schedules[0];
-    const firstDay = firstSchedule.event_days[0];
+    const preferredSchedule =
+      event.schedules.find((schedule) => schedule.schedule_id === selectedScheduleIdFromState) || event.schedules[0];
+    const firstDay = preferredSchedule.event_days[0];
     setForm((prev) => ({
       ...prev,
-      schedule_id: firstSchedule.schedule_id,
+      schedule_id: preferredSchedule.schedule_id,
       event_day_id: firstDay?.event_day_id || 0,
       ticket_ids: [],
     }));
-  }, [event, form.schedule_id]);
+  }, [event, form.schedule_id, selectedScheduleIdFromState]);
 
   const selectedSchedule = useMemo<EventSchedule | null>(
     () => event?.schedules.find((schedule) => schedule.schedule_id === form.schedule_id) || null,
@@ -48,8 +51,30 @@ function BookingPage() {
     [selectedSchedule, form.event_day_id],
   );
   const selectedTickets = useMemo<EventSeat[]>(
-    () => (selectedDay?.available_tickets || []).filter((ticket) => form.ticket_ids.includes(ticket.ticket_id)),
+    () => (selectedDay?.seats || []).filter((ticket) => form.ticket_ids.includes(ticket.ticket_id)),
     [selectedDay, form.ticket_ids],
+  );
+  const seatRows = useMemo(
+    () => Array.from(new Set((selectedDay?.seats || []).map((ticket) => ticket.row_label).filter(Boolean) as string[])).sort(),
+    [selectedDay],
+  );
+  const seatCols = useMemo(
+    () =>
+      Array.from(new Set((selectedDay?.seats || []).map((ticket) => ticket.col_number).filter((value): value is number => typeof value === "number"))).sort(
+        (a, b) => a - b,
+      ),
+    [selectedDay],
+  );
+  const seatMap = useMemo(() => {
+    const map = new Map<string, EventSeat>();
+    for (const ticket of selectedDay?.seats || []) {
+      map.set(`${ticket.row_label}-${ticket.col_number}`, ticket);
+    }
+    return map;
+  }, [selectedDay]);
+  const availableSeatCount = useMemo(
+    () => (selectedDay?.seats || []).filter((ticket) => ticket.ticket_status === "Available").length,
+    [selectedDay],
   );
 
   function setField<K extends keyof ReservationRequest>(field: K, value: ReservationRequest[K]) {
@@ -79,6 +104,37 @@ function BookingPage() {
     }));
   }
 
+  function getSeatTone(ticket: EventSeat, active: boolean) {
+    if (active) return "user-seat-slot-selected";
+
+    switch (ticket.ticket_status) {
+      case "Available":
+        switch ((ticket.ticket_type || "").toLowerCase()) {
+          case "special":
+            return "user-seat-slot-special";
+          case "vip":
+            return "user-seat-slot-vip";
+          default:
+            return "user-seat-slot-normal";
+        }
+      case "Holding":
+        return "user-seat-slot-holding";
+      case "Valid":
+        return "user-seat-slot-valid";
+      case "Used":
+        return "user-seat-slot-used";
+      case "Canceled":
+      case "Cancelled":
+        return "user-seat-slot-cancelled";
+      case "Reserved":
+        return "user-seat-slot-reserved";
+      case "Refunded":
+        return "user-seat-slot-refunded";
+      default:
+        return "user-seat-slot-unavailable";
+    }
+  }
+
   async function handleSubmit(eventValue: React.FormEvent<HTMLFormElement>) {
     eventValue.preventDefault();
     setSubmitting(true);
@@ -102,7 +158,7 @@ function BookingPage() {
       <PageHeader
         eyebrow={event ? event.event_name : `Event #${eventId}`}
         title="Reserve tickets"
-        description="Choose a schedule, select a performance day, then reserve available seats created from the admin seat layout."
+        description="Choose a schedule, select a performance day, then reserve seats from the full seat map."
       />
       {loading && <LoadingState />}
       {loadError && <ErrorState message={loadError} onRetry={() => void reload()} />}
@@ -171,26 +227,76 @@ function BookingPage() {
 
             <div className="panel" style={{ gridColumn: "1 / -1" }}>
               <div className="row-between">
-                <h2>Available seats</h2>
-                <span className="muted">{selectedDay?.available_tickets.length || 0} seats available</span>
+                <h2>Seat map</h2>
+                <span className="muted">
+                  {selectedDay?.seats.length || 0} seats total • {availableSeatCount} available
+                </span>
               </div>
-              {!selectedDay || selectedDay.available_tickets.length === 0 ? (
-                <EmptyState title="No available seats" description="Choose another day or wait for the admin team to open inventory." />
+              {!selectedDay || selectedDay.seats.length === 0 ? (
+                <EmptyState title="No seat map available" description="Choose another day or wait for the admin team to open inventory." />
+              ) : seatRows.length > 0 && seatCols.length > 0 ? (
+                <div className="user-seat-map-wrapper">
+                  <div className="user-seat-legend">
+                    <span className="user-seat-legend-item"><i className="user-seat-legend-dot user-seat-slot-normal" /> Normal available</span>
+                    <span className="user-seat-legend-item"><i className="user-seat-legend-dot user-seat-slot-special" /> Special available</span>
+                    <span className="user-seat-legend-item"><i className="user-seat-legend-dot user-seat-slot-vip" /> VIP / invite</span>
+                    <span className="user-seat-legend-item"><i className="user-seat-legend-dot user-seat-slot-holding" /> Holding</span>
+                    <span className="user-seat-legend-item"><i className="user-seat-legend-dot user-seat-slot-valid" /> Sold</span>
+                    <span className="user-seat-legend-item"><i className="user-seat-legend-dot user-seat-slot-used" /> Used</span>
+                    <span className="user-seat-legend-item"><i className="user-seat-legend-dot user-seat-slot-selected" /> Selected</span>
+                  </div>
+                  <div className="user-seat-map" style={{ gridTemplateColumns: `48px repeat(${seatCols.length}, minmax(48px, 1fr))` }}>
+                    <div />
+                    {seatCols.map((col) => (
+                      <div key={`seat-col-${col}`} className="user-seat-axis">
+                        {col}
+                      </div>
+                    ))}
+                    {seatRows.map((row) => (
+                      <Fragment key={`seat-row-${row}`}>
+                        <div className="user-seat-axis">{row}</div>
+                        {seatCols.map((col) => {
+                          const ticket = seatMap.get(`${row}-${col}`);
+                          if (!ticket) {
+                            return <div key={`empty-${row}-${col}`} className="user-seat-slot user-seat-slot-empty" />;
+                          }
+                          const active = form.ticket_ids.includes(ticket.ticket_id);
+                          const canToggle = ticket.ticket_status === "Available";
+                          return (
+                            <button
+                              key={`seat-${ticket.ticket_id}`}
+                              type="button"
+                              className={`user-seat-slot ${getSeatTone(ticket, active)}`}
+                              onClick={() => canToggle && toggleSeat(ticket.ticket_id)}
+                              disabled={!canToggle}
+                              title={`${ticket.ticket_type} seat ${row}${col} - ${ticket.ticket_status} - ${formatCurrency(ticket.price || 0)}`}
+                            >
+                              <span>{row}{col}</span>
+                              <small>{ticket.ticket_type}</small>
+                            </button>
+                          );
+                        })}
+                      </Fragment>
+                    ))}
+                  </div>
+                </div>
               ) : (
                 <div className="summary-list">
-                  {selectedDay.available_tickets.map((ticket) => {
+                  {selectedDay.seats.map((ticket) => {
                     const active = form.ticket_ids.includes(ticket.ticket_id);
+                    const canToggle = ticket.ticket_status === "Available";
                     return (
                       <button
                         key={ticket.ticket_id}
                         type="button"
                         className={`button ${active ? "button-primary" : "button-secondary"}`}
-                        onClick={() => toggleSeat(ticket.ticket_id)}
+                        onClick={() => canToggle && toggleSeat(ticket.ticket_id)}
+                        disabled={!canToggle}
                         style={{ justifyContent: "space-between" }}
                       >
                         <span>
                           {ticket.ticket_type} • Seat {ticket.row_label}
-                          {ticket.col_number}
+                          {ticket.col_number} • {ticket.ticket_status}
                         </span>
                         <strong>{formatCurrency(ticket.price || 0)}</strong>
                       </button>

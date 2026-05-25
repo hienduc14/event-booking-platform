@@ -57,7 +57,7 @@ def get_event_detail(db: Session, event_id: int) -> Optional[dict]:
 
         days = []
         for day in sorted(schedule.event_days, key=lambda item: item.date):
-            available_tickets = [
+            seats = [
                 {
                     "ticket_id": ticket.ticket_id,
                     "ticket_config_id": ticket.ticket_config_id,
@@ -68,13 +68,14 @@ def get_event_detail(db: Session, event_id: int) -> Optional[dict]:
                     "price": ticket.price,
                 }
                 for ticket in sorted(day.e_tickets, key=lambda item: ((item.row_label or ""), item.col_number or 0))
-                if ticket.ticket_status == "Available" and ticket.booking_id is None
             ]
+            available_tickets = [ticket for ticket in seats if ticket["ticket_status"] == "Available"]
             days.append(
                 {
                     "event_day_id": day.event_day_id,
                     "schedule_id": day.schedule_id,
                     "date": day.date,
+                    "seats": seats,
                     "available_tickets": available_tickets,
                 }
             )

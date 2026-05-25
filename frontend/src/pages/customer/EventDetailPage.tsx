@@ -28,7 +28,11 @@ function EventDetailPage() {
               <Badge>{event.status}</Badge>
               <h1>{event.event_name}</h1>
               <p>{event.description || "No description has been added for this event."}</p>
-              <Link className="button button-primary" to={`/events/${event.event_id}/book`}>
+              <Link
+                className="button button-primary"
+                to={`/events/${event.event_id}/book`}
+                state={event.schedules[0] ? { selectedScheduleId: event.schedules[0].schedule_id } : undefined}
+              >
                 Book tickets
               </Link>
             </div>
@@ -48,7 +52,11 @@ function EventDetailPage() {
                       {schedule.venue.city} • Capacity {schedule.venue.capacity}
                     </p>
                   </div>
-                  <Link className="button button-secondary" to={`/events/${event.event_id}/book`}>
+                  <Link
+                    className="button button-secondary"
+                    to={`/events/${event.event_id}/book`}
+                    state={{ selectedScheduleId: schedule.schedule_id }}
+                  >
                     Select seats
                   </Link>
                 </div>
