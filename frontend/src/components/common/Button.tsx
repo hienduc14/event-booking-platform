@@ -1,8 +1,10 @@
 type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: "primary" | "secondary" | "danger" | "ghost";
+  variant?: "primary" | "secondary" | "danger" | "ghost" | "outline" | "on-dark";
+  size?: "sm" | "md" | "lg";
 };
 
-export function Button({ className = "", variant = "primary", ...props }: ButtonProps) {
-  return <button className={`button button-${variant} ${className}`.trim()} {...props} />;
+export function Button({ className = "", variant = "primary", size = "md", ...props }: ButtonProps) {
+  const sizeClass = size === "md" ? "" : `button-${size}`;
+  const composed = ["button", `button-${variant}`, sizeClass, className].filter(Boolean).join(" ");
+  return <button className={composed} {...props} />;
 }
-

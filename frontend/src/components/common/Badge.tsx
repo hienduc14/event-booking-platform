@@ -1,4 +1,5 @@
 type BadgeTone = "neutral" | "success" | "warning" | "danger" | "info";
+type BadgeVariant = "soft" | "solid";
 
 const toneByStatus: Record<string, BadgeTone> = {
   ACTIVE: "success",
@@ -18,9 +19,16 @@ const toneByStatus: Record<string, BadgeTone> = {
   USED: "neutral",
 };
 
-export function Badge({ children, tone }: { children: React.ReactNode; tone?: BadgeTone }) {
+export function Badge({
+  children,
+  tone,
+  variant = "soft",
+}: {
+  children: React.ReactNode;
+  tone?: BadgeTone;
+  variant?: BadgeVariant;
+}) {
   const value = String(children);
-  const resolvedTone = tone ?? toneByStatus[value] ?? "neutral";
-  return <span className={`badge badge-${resolvedTone}`}>{children}</span>;
+  const resolvedTone = tone ?? toneByStatus[value.toUpperCase()] ?? "neutral";
+  return <span className={`badge badge-${variant} badge-${resolvedTone}`}>{children}</span>;
 }
-

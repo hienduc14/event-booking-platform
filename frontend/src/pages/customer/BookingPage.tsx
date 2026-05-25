@@ -5,6 +5,7 @@ import { createReservation } from "../../api/reservations";
 import { BookingSummary } from "../../components/booking/BookingSummary";
 import { EmptyState, ErrorState, LoadingState } from "../../components/common/AsyncState";
 import { Button } from "../../components/common/Button";
+import { Icon } from "../../components/common/Icon";
 import { PageHeader } from "../../components/common/PageHeader";
 import { useAsync } from "../../hooks/useAsync";
 import type { ReservationRequest } from "../../types/booking";
@@ -101,8 +102,9 @@ function BookingPage() {
     <div className="stack-lg">
       <PageHeader
         eyebrow={event ? event.event_name : `Event #${eventId}`}
-        title="Reserve tickets"
-        description="Choose a schedule, select a performance day, then reserve available seats created from the admin seat layout."
+        eyebrowIcon="music"
+        title="Reserve your tickets"
+        description="Fill in your contact details, pick a schedule and show day, then choose the seats you want."
       />
       {loading && <LoadingState />}
       {loadError && <ErrorState message={loadError} onRetry={() => void reload()} />}
@@ -110,23 +112,53 @@ function BookingPage() {
         <div className="two-column">
           <form className="panel form-grid" onSubmit={handleSubmit}>
             {error && <div className="form-error">{error}</div>}
+
+            <h2 className="form-section-title">
+              <span className="form-section-index">1</span>
+              Contact information
+            </h2>
             <label>
               Full name
-              <input required value={form.customer_name} onChange={(eventValue) => setField("customer_name", eventValue.target.value)} />
+              <input
+                required
+                value={form.customer_name}
+                onChange={(eventValue) => setField("customer_name", eventValue.target.value)}
+                placeholder="e.g. Nguyễn Văn A"
+              />
             </label>
             <label>
               Phone
-              <input required value={form.phone} onChange={(eventValue) => setField("phone", eventValue.target.value)} />
+              <input
+                required
+                value={form.phone}
+                onChange={(eventValue) => setField("phone", eventValue.target.value)}
+                placeholder="0901 234 567"
+              />
             </label>
             <label>
               Email
-              <input required type="email" value={form.email} onChange={(eventValue) => setField("email", eventValue.target.value)} />
+              <input
+                required
+                type="email"
+                value={form.email}
+                onChange={(eventValue) => setField("email", eventValue.target.value)}
+                placeholder="you@email.com"
+              />
             </label>
             <label>
               Refund payment account
-              <input required value={form.payment_account} onChange={(eventValue) => setField("payment_account", eventValue.target.value)} />
+              <input
+                required
+                value={form.payment_account}
+                onChange={(eventValue) => setField("payment_account", eventValue.target.value)}
+                placeholder="Bank account or e-wallet"
+              />
             </label>
 
+            <h2 className="form-section-title">
+              <span className="form-section-index">2</span>
+              Schedule &amp; show day
+            </h2>
             <label>
               Schedule
               <select value={form.schedule_id} onChange={(eventValue) => changeSchedule(Number(eventValue.target.value))}>
@@ -137,7 +169,6 @@ function BookingPage() {
                 ))}
               </select>
             </label>
-
             <label>
               Performance day
               <select value={form.event_day_id} onChange={(eventValue) => changeDay(Number(eventValue.target.value))}>
@@ -150,49 +181,66 @@ function BookingPage() {
             </label>
 
             {selectedSchedule && (
-              <div className="panel" style={{ gridColumn: "1 / -1" }}>
-                <div className="stack-sm">
-                  <p className="muted">
-                    Registration window: {formatDateTime(selectedSchedule.registration_start)} to {formatDateTime(selectedSchedule.registration_end)}
+              <div className="full-span">
+                <div className="ticket-config-list">
+                  <p className="text-soft" style={{ fontSize: "0.85rem" }}>
+                    Registration window: {formatDateTime(selectedSchedule.registration_start)} →{" "}
+                    {formatDateTime(selectedSchedule.registration_end)}
                   </p>
-                  <div className="summary-list">
-                    {selectedSchedule.ticket_configs.map((config) => (
-                      <div key={config.config_id} className="summary-row">
-                        <span>{config.ticket_type}</span>
-                        <strong>
-                          {formatCurrency(config.price)} • {config.remaining_quantity ?? 0} seats left
+                  {selectedSchedule.ticket_configs.map((config) => (
+                    <div key={config.config_id} className="ticket-config-row">
+                      <strong>{config.ticket_type}</strong>
+                      <span>
+                        <strong style={{ color: "var(--primary-strong)" }}>
+                          {formatCurrency(config.price)}
                         </strong>
-                      </div>
-                    ))}
-                  </div>
+                        <span className="text-muted" style={{ marginLeft: 12, fontSize: "0.85rem" }}>
+                          {config.remaining_quantity ?? 0} left
+                        </span>
+                      </span>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
 
-            <div className="panel" style={{ gridColumn: "1 / -1" }}>
-              <div className="row-between">
-                <h2>Available seats</h2>
-                <span className="muted">{selectedDay?.available_tickets.length || 0} seats available</span>
+            <h2 className="form-section-title">
+              <span className="form-section-index">3</span>
+              Choose your seats
+            </h2>
+            <div className="full-span">
+              <div className="row-between" style={{ marginBottom: "0.75rem" }}>
+                <span className="text-muted" style={{ fontSize: "0.92rem" }}>
+                  Tap a seat to select. Selected seats appear in the summary on the right.
+                </span>
+                <span className="chip">
+                  <Icon name="users" /> {selectedDay?.available_tickets.length || 0} available
+                </span>
               </div>
               {!selectedDay || selectedDay.available_tickets.length === 0 ? (
-                <EmptyState title="No available seats" description="Choose another day or wait for the admin team to open inventory." />
+                <EmptyState
+                  title="No available seats"
+                  description="Choose another day or wait for the admin team to open inventory."
+                  icon="info"
+                />
               ) : (
-                <div className="summary-list">
+                <div className="seat-grid">
                   {selectedDay.available_tickets.map((ticket) => {
                     const active = form.ticket_ids.includes(ticket.ticket_id);
                     return (
                       <button
                         key={ticket.ticket_id}
                         type="button"
-                        className={`button ${active ? "button-primary" : "button-secondary"}`}
+                        className={`seat-tile${active ? " seat-tile-active" : ""}`}
                         onClick={() => toggleSeat(ticket.ticket_id)}
-                        style={{ justifyContent: "space-between" }}
                       >
-                        <span>
-                          {ticket.ticket_type} • Seat {ticket.row_label}
+                        <span className="seat-tile-label">
+                          {ticket.row_label}
                           {ticket.col_number}
                         </span>
-                        <strong>{formatCurrency(ticket.price || 0)}</strong>
+                        <span className="seat-tile-meta">
+                          {ticket.ticket_type || "Seat"} · {formatCurrency(ticket.price || 0)}
+                        </span>
                       </button>
                     );
                   })}
@@ -200,9 +248,21 @@ function BookingPage() {
               )}
             </div>
 
-            <Button type="submit" disabled={submitting || form.ticket_ids.length === 0}>
-              {submitting ? "Creating reservation..." : "Create reservation"}
-            </Button>
+            <div className="full-span">
+              <Button
+                type="submit"
+                size="lg"
+                disabled={submitting || form.ticket_ids.length === 0}
+                style={{ width: "100%" }}
+              >
+                {submitting
+                  ? "Creating reservation..."
+                  : form.ticket_ids.length === 0
+                  ? "Select at least one seat"
+                  : `Reserve ${form.ticket_ids.length} seat${form.ticket_ids.length > 1 ? "s" : ""}`}
+                {!submitting && form.ticket_ids.length > 0 && <Icon name="arrow-right" size={16} />}
+              </Button>
+            </div>
           </form>
 
           <BookingSummary schedule={selectedSchedule} eventDay={selectedDay} selectedTickets={selectedTickets} />
