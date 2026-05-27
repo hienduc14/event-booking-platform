@@ -9,9 +9,10 @@ export function BookingSummary({
 }: {
   schedule: EventSchedule | null;
   eventDay: EventDay | null;
-  selectedTickets: EventSeat[];
+  selectedTickets: (EventSeat & { date?: string | null })[];
 }) {
   const estimatedTotal = selectedTickets.reduce((sum, ticket) => sum + Number(ticket.price || 0), 0);
+  const uniqueDates = Array.from(new Set(selectedTickets.map((t) => t.date).filter(Boolean) as string[]));
 
   return (
     <aside className="summary-panel">
@@ -32,7 +33,15 @@ export function BookingSummary({
             <Icon name="calendar" size={14} style={{ verticalAlign: "-2px", marginRight: 4 }} />
             Show date
           </dt>
-          <dd>{eventDay ? formatDateTime(eventDay.date) : "Select a day"}</dd>
+          <dd>
+            {uniqueDates.length > 1
+              ? `${uniqueDates.length} days selected`
+              : uniqueDates.length === 1
+              ? formatDateTime(uniqueDates[0])
+              : eventDay
+              ? formatDateTime(eventDay.date)
+              : "Select a day"}
+          </dd>
         </div>
         <div>
           <dt>
@@ -49,14 +58,22 @@ export function BookingSummary({
           Pick a seat from the list to see your total.
         </div>
       ) : (
-        <div className="summary-list">
+        <div className="summary-list" style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
           {selectedTickets.map((ticket) => (
-            <div key={ticket.ticket_id} className="summary-row">
-              <span>
-                {ticket.ticket_type} · Seat {ticket.row_label}
-                {ticket.col_number}
-              </span>
-              <strong>{formatCurrency(ticket.price || 0)}</strong>
+            <div key={ticket.ticket_id} className="summary-card" style={{ background: "var(--panel-bg-subtle, rgba(0,0,0,0.02))", border: "1px solid var(--border)", padding: "10px", borderRadius: "6px", display: "flex", flexDirection: "column", gap: "4px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <strong style={{ fontSize: "0.9rem" }}>
+                  {ticket.ticket_type} · Seat {ticket.row_label}
+                  {ticket.col_number}
+                </strong>
+                <strong style={{ color: "var(--primary-strong)" }}>{formatCurrency(ticket.price || 0)}</strong>
+              </div>
+              {ticket.date && (
+                <span className="text-soft" style={{ fontSize: "0.78rem", display: "flex", alignItems: "center", gap: "4px" }}>
+                  <Icon name="calendar" size={12} style={{ opacity: 0.7 }} />
+                  {formatDateTime(ticket.date)}
+                </span>
+              )}
             </div>
           ))}
         </div>

@@ -50,10 +50,19 @@ function BookingPage() {
     () => selectedSchedule?.event_days.find((day) => day.event_day_id === form.event_day_id) || null,
     [selectedSchedule, form.event_day_id],
   );
-  const selectedTickets = useMemo<EventSeat[]>(
-    () => (selectedDay?.seats || []).filter((ticket) => form.ticket_ids.includes(ticket.ticket_id)),
-    [selectedDay, form.ticket_ids],
-  );
+  const selectedTickets = useMemo<(EventSeat & { date?: string })[]>(() => {
+    if (!selectedSchedule) return [];
+    const list: (EventSeat & { date?: string })[] = [];
+    for (const day of selectedSchedule.event_days || []) {
+      const daySeats = day.seats || [];
+      for (const seat of daySeats) {
+        if (form.ticket_ids.includes(seat.ticket_id)) {
+          list.push({ ...seat, date: day.date });
+        }
+      }
+    }
+    return list;
+  }, [selectedSchedule, form.ticket_ids]);
   const seatRows = useMemo(
     () => Array.from(new Set((selectedDay?.seats || []).map((ticket) => ticket.row_label).filter(Boolean) as string[])).sort(),
     [selectedDay],
@@ -92,7 +101,7 @@ function BookingPage() {
   }
 
   function changeDay(dayId: number) {
-    setForm((prev) => ({ ...prev, event_day_id: dayId, ticket_ids: [] }));
+    setForm((prev) => ({ ...prev, event_day_id: dayId }));
   }
 
   function toggleSeat(ticketId: number) {
@@ -200,7 +209,7 @@ function BookingPage() {
               />
             </label>
             <label>
-              Schedule
+              Venue
               <select value={form.schedule_id} onChange={(eventValue) => changeSchedule(Number(eventValue.target.value))}>
                 {event.schedules.map((schedule) => (
                   <option key={schedule.schedule_id} value={schedule.schedule_id}>
@@ -209,16 +218,54 @@ function BookingPage() {
                 ))}
               </select>
             </label>
-            <label>
-              Performance day
-              <select value={form.event_day_id} onChange={(eventValue) => changeDay(Number(eventValue.target.value))}>
-                {(selectedSchedule?.event_days || []).map((day) => (
-                  <option key={day.event_day_id} value={day.event_day_id}>
-                    {formatDateTime(day.date)}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div className="full-span" style={{ marginBottom: "0.5rem" }}>
+              <span className="muted" style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.9rem", fontWeight: "600" }}>Performance day</span>
+              <div className="day-tabs-container" style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+                {(selectedSchedule?.event_days || []).map((day) => {
+                  const isSelected = day.event_day_id === form.event_day_id;
+                  const selectedCount = (day.seats || []).filter((seat) => form.ticket_ids.includes(seat.ticket_id)).length;
+                  return (
+                    <button
+                      key={day.event_day_id}
+                      type="button"
+                      className={`day-tab-btn ${isSelected ? "active" : ""}`}
+                      onClick={() => changeDay(day.event_day_id)}
+                      style={{
+                        padding: "0.75rem 1.25rem",
+                        borderRadius: "8px",
+                        border: isSelected ? "2px solid var(--primary-strong)" : "1px solid var(--border)",
+                        background: isSelected ? "var(--primary-subtle, rgba(239, 68, 68, 0.1))" : "var(--panel-bg)",
+                        color: isSelected ? "var(--primary-strong)" : "var(--text-main)",
+                        cursor: "pointer",
+                        fontWeight: "600",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        transition: "all 0.2s ease",
+                      }}
+                    >
+                      <Icon name="calendar" size={14} />
+                      {formatDateTime(day.date)}
+                      {selectedCount > 0 && (
+                        <span
+                          className="day-seat-count-badge"
+                          style={{
+                            background: "var(--primary)",
+                            color: "#fff",
+                            fontSize: "0.75rem",
+                            borderRadius: "12px",
+                            padding: "2px 8px",
+                            fontWeight: "700",
+                          }}
+                        >
+                          {selectedCount}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
             {selectedSchedule && (
               <div className="full-span">
@@ -227,19 +274,24 @@ function BookingPage() {
                     Registration window: {formatDateTime(selectedSchedule.registration_start)} →{" "}
                     {formatDateTime(selectedSchedule.registration_end)}
                   </p>
-                  {selectedSchedule.ticket_configs.map((config) => (
-                    <div key={config.config_id} className="ticket-config-row">
-                      <strong>{config.ticket_type}</strong>
-                      <span>
-                        <strong style={{ color: "var(--primary-strong)" }}>
-                          {formatCurrency(config.price)}
-                        </strong>
-                        <span className="text-muted" style={{ marginLeft: 12, fontSize: "0.85rem" }}>
-                          {config.remaining_quantity ?? 0} left
+                  {selectedSchedule.ticket_configs.map((config) =>
+                    config.ticket_type !== "vip" ? (
+                      <div key={config.config_id} className="ticket-config-row">
+                        <strong>{config.ticket_type}</strong>
+                        <span>
+                          <strong style={{ color: "var(--primary-strong)" }}>
+                            {formatCurrency(config.price)}
+                          </strong>
+                          <span
+                            className="text-muted"
+                            style={{ marginLeft: 12, fontSize: "0.85rem" }}
+                          >
+                            {config.remaining_quantity ?? 0} left
+                          </span>
                         </span>
-                      </span>
-                    </div>
-                  ))}
+                      </div>
+                    ) : null
+                  )}
                 </div>
               </div>
             )}

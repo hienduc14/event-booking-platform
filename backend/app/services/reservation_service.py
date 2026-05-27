@@ -37,10 +37,11 @@ def create_reservation(db: Session, request: ReservationRequest) -> Tuple[Option
         db.rollback()
         return None, "One or more selected seats no longer exist"
 
+    valid_day_ids = {day.event_day_id for day in schedule.event_days}
     for ticket in selected_tickets:
-        if ticket.event_day_id != request.event_day_id:
+        if ticket.event_day_id not in valid_day_ids:
             db.rollback()
-            return None, "Selected seats must belong to the same event day"
+            return None, "Selected seats must belong to the selected schedule"
         if ticket.ticket_status != "Available" or ticket.booking_id is not None:
             db.rollback()
             return None, f"Seat {ticket.row_label or ''}{ticket.col_number or ''} is no longer available"
