@@ -1,6 +1,8 @@
+from datetime import timedelta
 from decimal import Decimal
 from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
+from app.core.config import settings
 from app.db.base import Base
 
 
@@ -53,7 +55,9 @@ class Booking(Base):
 
     @property
     def expires_at(self):
-        return None
+        if not self.created_at:
+            return None
+        return self.created_at + timedelta(minutes=settings.reservation_timeout_minutes)
 
     @property
     def updated_at(self):

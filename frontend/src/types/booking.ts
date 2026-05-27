@@ -14,7 +14,6 @@ export type ReservationRequest = {
   customer_name: string;
   phone: string;
   email: string;
-  payment_account: string;
   schedule_id: number;
   event_day_id: number;
   ticket_ids: number[];
@@ -26,7 +25,7 @@ export type BookingRead = {
   customer_name: string;
   phone: string;
   email: string;
-  payment_account: string;
+  payment_account?: string | null;
   booking_status: BookingStatus;
   total_amount: string | number;
   expires_at?: string | null;

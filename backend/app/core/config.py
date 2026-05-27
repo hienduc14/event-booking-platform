@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     backend_url: str = "http://localhost:8000"
 
     # Reservation timeout (minutes)
-    reservation_timeout_minutes: int = 15
+    reservation_timeout_minutes: int = 10
 
     class Config:
         env_file = ".env"

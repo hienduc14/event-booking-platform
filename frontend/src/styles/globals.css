@@ -1271,6 +1271,44 @@ th {
   gap: 0.2rem;
 }
 
+.payment-method-switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.payment-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 360px) 1fr;
+  gap: 1rem;
+}
+
+.payment-bank-card,
+.payment-form-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-muted);
+  padding: 1rem;
+}
+
+.payment-bank-card p,
+.payment-form-card p {
+  margin-bottom: 0.75rem;
+}
+
+.payment-qr-image {
+  width: min(220px, 100%);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  padding: 0.75rem;
+}
+
+.payment-inline-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
 .booking-receipt strong {
   font-size: 1rem;
   font-weight: 700;
@@ -1606,6 +1644,162 @@ th {
   padding-left: 1.2rem;
 }
 
+.user-seat-map-wrapper {
+  overflow-x: auto;
+  margin-top: 1rem;
+}
+
+.user-seat-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.user-seat-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.user-seat-legend-dot {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  border: 1px solid transparent;
+}
+
+.user-seat-map {
+  display: grid;
+  gap: 0.45rem;
+  min-width: max-content;
+  align-items: center;
+}
+
+.user-seat-axis {
+  display: grid;
+  place-items: center;
+  min-height: 48px;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.user-seat-slot {
+  min-height: 48px;
+  min-width: 48px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-muted);
+  color: var(--text);
+  display: grid;
+  place-items: center;
+  gap: 0.1rem;
+  padding: 0.35rem 0.25rem;
+  cursor: pointer;
+  transition: 0.15s ease;
+}
+
+.user-seat-slot span {
+  font-size: 0.8rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.user-seat-slot small {
+  font-size: 0.58rem;
+  text-transform: capitalize;
+  line-height: 1;
+}
+
+.user-seat-slot:hover {
+  border-color: var(--primary);
+  transform: translateY(-1px);
+}
+
+.user-seat-slot:disabled {
+  cursor: default;
+}
+
+.user-seat-slot-normal {
+  background: #eef4ff;
+  border-color: #cddcff;
+  color: var(--primary-dark);
+}
+
+.user-seat-slot-special {
+  background: #efe7ff;
+  border-color: #d8c6ff;
+  color: #5d2db0;
+}
+
+.user-seat-slot-vip {
+  background: #fff2d8;
+  border-color: #ffd08a;
+  color: #9a5a00;
+}
+
+.user-seat-slot-selected {
+  background: var(--primary);
+  border-color: var(--primary-dark);
+  color: #fff;
+}
+
+.user-seat-slot-holding {
+  background: #fff7d6;
+  border-color: #f4d35e;
+  color: #8b6b00;
+}
+
+.user-seat-slot-valid {
+  background: #dbeafe;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+}
+
+.user-seat-slot-used {
+  background: #e5e7eb;
+  border-color: #cbd5e1;
+  color: #475569;
+}
+
+.user-seat-slot-reserved {
+  background: #fde7c7;
+  border-color: #f5b971;
+  color: #9a5a00;
+}
+
+.user-seat-slot-cancelled,
+.user-seat-slot-refunded {
+  background: #fee2e2;
+  border-color: #fca5a5;
+  color: var(--danger);
+}
+
+.user-seat-slot-unavailable {
+  background: #e2e8f0;
+  border-color: #cbd5e1;
+  color: #475569;
+}
+
+.user-seat-slot-empty {
+  background: transparent;
+  border-style: dashed;
+  border-color: #d9e2ec;
+  cursor: default;
+}
+
+@media (max-width: 860px) {
+  .site-header {
+    height: auto;
+    align-items: start;
+    flex-direction: column;
+    gap: 0.8rem;
+    padding: 1rem 0;
+  }
 .auth-page {
   min-height: 100vh;
   display: grid;
@@ -1654,6 +1848,12 @@ th {
     display: none;
   }
 
+  .detail-hero,
+  .two-column,
+  .payment-layout,
+  .admin-shell {
+    grid-template-columns: 1fr;
+  }
   .hero {
     padding: 1.75rem 1.5rem;
   }
@@ -1670,6 +1870,13 @@ th {
     grid-template-columns: 1fr;
   }
 
+  .payment-inline-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .summary-panel {
+    position: static;
+}
   .page-header {
     flex-direction: column;
     align-items: stretch;

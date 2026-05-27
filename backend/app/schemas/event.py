@@ -57,6 +57,7 @@ class EventDayRead(BaseModel):
     event_day_id: int
     schedule_id: int
     date: datetime
+    seats: List[EventSeatRead] = []
     available_tickets: List[EventSeatRead] = []
 
     model_config = {"from_attributes": True}

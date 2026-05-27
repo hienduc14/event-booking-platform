@@ -90,7 +90,11 @@ function EventDetailPage() {
                       Registration · {formatDateTime(schedule.registration_start)} → {formatDateTime(schedule.registration_end)}
                     </p>
                   </div>
-                  <Link className="button button-primary button-sm" to={`/events/${event.event_id}/book`}>
+                  <Link
+                    className="button button-secondary button-sm"
+                    to={`/events/${event.event_id}/book`}
+                    state={{ selectedScheduleId: schedule.schedule_id }}
+                  >
                     Select seats
                     <Icon name="arrow-right" size={14} />
                   </Link>
