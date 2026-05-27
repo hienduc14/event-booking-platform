@@ -1,858 +1,294 @@
-# UI Structure Plan - Event Booking Platform
+# UI_Structure.md – Kế hoạch nâng cấp giao diện Event Booking Platform
 
-Tài liệu này mô tả kế hoạch thiết kế frontend cho hệ thống đặt vé sự kiện. Mục tiêu là thống nhất sitemap, page hierarchy, component structure, state management, API integration và roadmap trước khi bắt đầu code UI.
+> Tài liệu này là bản kế hoạch và đặc tả thiết kế cho đợt refactor UI/UX của phần frontend (Vite + React + TypeScript). Mục tiêu: giúp trang web đặt vé concert/event trông hiện đại, chuyên nghiệp, dễ dùng hơn mà không thay đổi business logic, API endpoint, schema, hay tên các function/hook đang dùng.
 
-## 1. Tổng Quan Hệ Thống Hiện Tại
+---
 
-Project đang đi theo mô hình client-server:
+## 1. Tổng quan stack frontend hiện tại
 
-- Frontend: React 18, Vite, TypeScript, React Router.
-- Backend: FastAPI, SQLAlchemy, Pydantic, PostgreSQL.
-- Business domain: xem sự kiện, giữ vé, thanh toán, phát hành vé điện tử, quản trị sự kiện, hoàn tiền khi hủy sự kiện.
+- **Build / Tooling**: Vite 5, TypeScript 5, React 18.
+- **Routing**: `react-router-dom@6` (file `src/App.tsx`, layout `CustomerLayout`).
+- **State / data**: React state cục bộ + hook tự viết `useAsync` (`src/hooks/useAsync.ts`). Không có Redux/Zustand/React Query.
+- **API client**: `src/api/client.ts` (fetch wrapper) + module wrapper `events.ts`, `payments.ts`, `reservations.ts`, `tickets.ts`.
+- **CSS**: Pure CSS thuần trong `src/styles/globals.css` (không Tailwind, không CSS Modules, không styled-components). Class name BEM-ish: `.event-card`, `.summary-panel`, `.hero`, ...
+- **Không có UI library** (không MUI / Ant Design / Radix). Mọi component được code thủ công.
 
-Frontend hiện tại mới ở mức scaffold:
+Việc giữ stack đơn giản này là tích cực: refactor UI không cần đưa thêm dependency lớn. Đợt nâng cấp này tiếp tục dùng **CSS thuần** + biến CSS (`var(--...)`), không thêm Tailwind hay framework UI mới, để tránh phá vỡ build và config hiện tại.
 
-- `src/App.tsx`: route cơ bản `/`, `/events/:eventId`, `/admin`.
-- `src/pages`: `HomePage`, `EventPage`, `AdminPage`.
-- `src/components`: `EventList`, `TicketBookingForm`.
-- `src/api/apiClient.ts`: có `fetchEvents`, `createTicket` nhưng chưa khớp API backend hiện tại.
-- `src/types`: type demo cũ, chưa khớp schema backend.
+---
 
-Backend hiện tại đã có các domain chính nhưng chưa đủ API đọc chi tiết cho toàn bộ UI:
+## 2. Cấu trúc giao diện hiện tại
 
-- Public APIs: events, reservations, payments, tickets.
-- Admin APIs: auth, events, venues, artists, bookings, refunds.
-- Database models: events, venues, event_schedules, event_days, artists, event_artists, ticket_configs, bookings, booking_details, e_tickets, payment_transactions, refund_transactions.
+### 2.1. Routing (customer)
 
-## 2. Định Hướng UI/UX
+Từ `src/App.tsx`:
 
-Giao diện nên ưu tiên rõ ràng, dễ demo và dễ thao tác hơn là hiệu ứng phức tạp.
+| Route | Page component | Mục đích |
+|-------|----------------|----------|
+| `/` | `HomePage` | Hero + 6 event nổi bật |
+| `/events` | `EventListPage` | Danh sách event, có search theo tên |
+| `/events/:eventId` | `EventDetailPage` | Banner + mô tả + danh sách schedule, ticket config |
+| `/events/:eventId/book` | `BookingPage` | Form đặt vé: thông tin khách + chọn schedule, day, seat |
+| `/checkout/:bookingId` | `CheckoutPage` | Tạo payment demo + simulate webhook |
+| `/booking/:bookingId/tickets` | `BookingTicketsPage` | Danh sách e-ticket sau khi thanh toán |
+| `/tickets/:ticketCode` | `TicketDetailPage` | Chi tiết 1 e-ticket theo mã |
 
-Định hướng visual:
+> Lưu ý: header có link `/tickets/lookup` nhưng route thực tế chỉ có `/tickets/:ticketCode`. Ticket lookup hiện trả về placeholder, chưa có form nhập mã. (Sẽ ghi chú vào phần "Vấn đề logic phát hiện trong lúc sửa UI" bên dưới.)
 
-- Clean, hiện đại, nhiều khoảng trắng vừa đủ.
-- Bố cục dashboard admin gọn, có sidebar, topbar, bảng dữ liệu và form rõ ràng.
-- Customer site tập trung vào hành trình: tìm sự kiện -> xem chi tiết -> chọn ngày/loại vé -> giữ vé -> thanh toán -> xem vé.
-- Không dùng animation phức tạp; chỉ cần hover, focus, transition nhẹ.
-- Màu sắc nên trung tính: nền sáng, text đậm, accent xanh dương hoặc xanh teal cho CTA.
-- Trạng thái booking/payment/ticket/refund phải hiển thị bằng badge màu dễ hiểu.
+### 2.2. Layout
 
-Nguyên tắc UX:
+- **`CustomerLayout`** (`src/components/layout/CustomerLayout.tsx`) – wrapper duy nhất cho mọi page customer:
+  - `<header class="site-header">` chứa logo `Event Booking` + 2 link nav (`Events`, `Ticket lookup`).
+  - `<main class="main-content">` chứa `Outlet`.
+  - `<footer class="site-footer">` text 1 dòng: "FastAPI + React event ticket booking demo".
 
-- Customer luôn thấy bước hiện tại trong booking flow.
-- Admin luôn thấy trạng thái dữ liệu và hành động chính.
-- Form cần validation rõ ràng trước khi gửi API.
-- Khi API thiếu dữ liệu, UI cần degrade hợp lý và ghi TODO backend.
+### 2.3. Components tái sử dụng
 
-## 3. Actor
+| Component | File | Vai trò |
+|-----------|------|---------|
+| `Button` | `components/common/Button.tsx` | Wrapper `<button>` có 4 variant: primary, secondary, danger, ghost |
+| `Badge` | `components/common/Badge.tsx` | Tô màu badge theo status (ACTIVE, PAID, ...) |
+| `PageHeader` | `components/common/PageHeader.tsx` | Eyebrow + title + description + actions |
+| `AsyncState` | `components/common/AsyncState.tsx` | `LoadingState`, `ErrorState`, `EmptyState` |
+| `EventCard` | `components/events/EventCard.tsx` | Card event trong grid |
+| `TicketCard` | `components/tickets/TicketCard.tsx` | Card e-ticket có QR |
+| `BookingSummary` | `components/booking/BookingSummary.tsx` | Sidebar tóm tắt đặt vé |
 
-### 3.1 Customer
+### 2.4. Style hiện tại (`globals.css`)
 
-Customer không cần đăng nhập. Customer có thể:
+- 1 file CSS duy nhất ~720 dòng, dùng biến CSS cho màu chính.
+- Palette hiện tại: `--primary: #1463ff` (xanh dương), `--bg: #f6f8fb` (xám nhạt), `--surface: #fff`, `--text: #102033`.
+- Typography: dùng font `Inter`, fallback `system-ui`. Tuy nhiên **không có `<link>` Google Fonts trong `index.html`** → trên Windows fallback sang `Segoe UI`.
+- Border-radius khá nhỏ (`8px`), chưa thực sự "modern".
+- Shadow nhẹ (`0 18px 45px rgba(15, 23, 42, 0.08)`).
+- Có responsive breakpoint ở `860px` và `560px`.
 
-- Xem danh sách sự kiện active.
-- Xem chi tiết sự kiện.
-- Chọn lịch diễn, ngày diễn, loại vé, số lượng.
-- Nhập thông tin đặt vé.
-- Tạo reservation.
-- Tạo payment.
-- Xem kết quả thanh toán.
-- Xem vé điện tử theo booking hoặc ticket code.
+---
 
-### 3.2 Admin
+## 3. Các vấn đề UI/UX hiện có
 
-Admin đăng nhập bằng JWT. Admin có thể:
+### 3.1. Giao diện chung
 
-- Đăng nhập dashboard.
-- Tạo/sửa/hủy sự kiện.
-- Tạo/sửa địa điểm.
-- Tạo schedule, event day, ticket config.
-- Tạo nghệ sĩ và gán nghệ sĩ vào event day.
-- Xem danh sách booking.
-- Xem refund pending và trigger xử lý refund.
+1. **Brand quá nhẹ / không có cảm xúc concert**: chỉ là chữ `Event Booking` thường, font không bold, không có icon, header trông như admin tool hơn là website bán vé concert.
+2. **Hero section thiếu chiều sâu**: ảnh Unsplash mặc định, không có badge / stat / dual CTA (Browse + How it works), không có pattern hay glow để gây ấn tượng.
+3. **Color palette quá "doc"**: xanh `#1463ff` + xám nhạt = cảm giác B2B/dashboard, không phải concert. Concert/event thường cần một accent màu nóng (đỏ hồng, tím gradient).
+4. **Typography đơn điệu**: chỉ một font (Inter fallback), không có weight contrast rõ giữa heading và body, không có letter-spacing cho display heading.
+5. **Border-radius và shadow chưa nhất quán**: card 8px, button 8px, badge pill 999px. Cảm giác "góc cứng".
+6. **Không có icon system**: tất cả UI đều thuần chữ, thiếu visual cue (icon location, calendar, ticket, ...).
+7. **Footer 1 dòng "demo"**: trông tạm bợ, thiếu cấu trúc (cột brand / liên hệ / chính sách / mạng xã hội).
+8. **Site nav không highlight active** rõ ràng – `.site-nav a.active` chỉ đổi background xám nhẹ, gần như không thấy được.
 
-### 3.3 Payment Gateway / Webhook
+### 3.2. Trang chủ (`HomePage`)
 
-Không phải actor UI trực tiếp. Frontend chỉ cần mô phỏng hoặc hiển thị trạng thái payment theo API backend. Webhook thường do hệ thống bên ngoài gọi.
+- Hero: chỉ 1 dòng tiêu đề + 1 dòng mô tả + 1 button. Thiếu trust signal, stat ("10K+ vé đã bán"), mô-tip thị giác.
+- "Active events" hiển thị toàn bộ event không phân loại (không có "Sắp diễn ra", "Bán chạy", "Mới mở").
+- Refresh button đặt cạnh tiêu đề nhưng không có giá trị về mặt UX cho người dùng cuối (chỉ hữu ích cho dev). Có thể giữ nhưng cần làm subtle hơn.
+- Thiếu các section bổ trợ: "Cách đặt vé" (3 step), "Tại sao chọn chúng tôi", CTA cuối trang.
 
-## 4. Business Flow Chính
+### 3.3. Danh sách event (`EventListPage`)
 
-### 4.1 Customer Browse Flow
+- Search box dài 420px, refresh button cạnh, không có filter theo city/date/price → trông trống.
+- Không có empty illustration, chỉ một dòng text.
 
-1. Customer vào trang chủ hoặc trang events.
-2. Frontend gọi `GET /api/v1/events`.
-3. Customer chọn event.
-4. Frontend gọi `GET /api/v1/events/{event_id}`.
-5. UI hiển thị event detail và lựa chọn đặt vé.
+### 3.4. Event card (`EventCard`)
 
-Backend gap: `GET /api/v1/events/{event_id}` hiện trả `EventRead` cơ bản, chưa trả nested schedules, event_days, ticket_configs, venues, artists, remaining_quantity. Frontend booking đầy đủ sẽ cần API detail mở rộng.
+- Card **không hiển thị**: ngày diễn, địa điểm, giá vé thấp nhất – là 3 thông tin quan trọng nhất khi quyết định mua vé concert. Card chỉ có: ảnh, tên, status badge, mô tả, button "View details".
+- Mô tả thường dài → gây tràn / không cap dòng → cần `line-clamp`.
+- Nút CTA `button-secondary` (màu nhạt) → ít kêu gọi click. Card cũng nên clickable toàn bộ.
 
-### 4.2 Reservation Flow
+### 3.5. Event detail (`EventDetailPage`)
 
-1. Customer chọn schedule, event day, ticket config và quantity.
-2. Customer nhập name, phone, email, payment_account.
-3. Frontend gửi `POST /api/v1/reservations`.
-4. Backend tạo booking `PENDING_PAYMENT`, trả `BookingRead`.
-5. Frontend lưu booking hiện tại để chuyển sang payment page.
+- Detail hero 2 cột (`minmax(260px, 420px) 1fr`) – ảnh bên trái, nội dung bên phải. Trên màn lớn ảnh khá nhỏ (max 420px) trong khi page rộng 1160px → vùng phải nhiều khoảng trống.
+- Mỗi `schedule` được hiển thị dạng `panel`, ticket config và event_days đều list ngang dạng `summary-row`. Khá khô. Không có phân tách rõ giữa "loại vé" và "ngày diễn".
+- Button "Select seats" nằm trong từng schedule, dễ nhầm với nút CTA chính ở trên (`Book tickets`).
+- Không có sticky CTA ở mobile.
 
-### 4.3 Payment Flow
+### 3.6. Booking page (`BookingPage`)
 
-1. Customer ở trang payment.
-2. Frontend gọi `POST /api/v1/payments/create`.
-3. Backend tạo payment transaction `INITIATED`.
-4. UI hiển thị payment instruction, amount và trạng thái.
-5. Với demo, có thể dùng Swagger/Postman gọi webhook hoặc cần thêm mock payment UI nếu backend hỗ trợ.
+- Form 2 cột (4 input personal + 2 select) trông như form đăng ký hành chính, không có grouping "Thông tin liên hệ" / "Chi tiết vé".
+- Khu "Available seats" hiện danh sách button full-width xếp dọc → với 50–100 ghế sẽ rất dài. Cần grid `auto-fill` để chọn seat dạng chip/tile.
+- Không có visual seat map. (Giữ behavior list nhưng cần presentation tốt hơn.)
+- Sticky `BookingSummary` sidebar trên desktop là tốt, nhưng phần trống dưới cùng khi ít vé chọn → cần fill bằng hint hoặc info.
 
-Backend gap: hiện API create payment chỉ trả transaction, chưa trả QR/payment URL/instruction/expired_at.
+### 3.7. Checkout (`CheckoutPage`)
 
-### 4.4 Ticket Flow
+- 1 `panel` chứa booking receipt + nút "Create payment" + thông tin payment + nút "Simulate success webhook". Cả flow nhồi vào một khối, không có step indicator → user khó biết đang ở bước nào.
+- Status badge và amount nhỏ, không nổi bật.
+- Khi đã thanh toán xong, không có gợi ý "Tiếp tục xem vé" rõ ràng – nút chỉ là button-secondary mờ.
 
-1. Khi payment webhook thành công, backend generate e-ticket.
-2. Customer mở `/booking/:bookingId/tickets`.
-3. Frontend gọi `GET /api/v1/tickets/booking/{booking_id}`.
-4. Customer xem QR, ticket code và trạng thái vé.
+### 3.8. Ticket card (`TicketCard`) & ticket pages
 
-Backend gap: chưa có public endpoint lấy booking detail theo booking_id; chỉ có tickets by booking.
+- QR code khung vuông 140px ở mobile thì stack về 1 cột, trông tạm ổn. Tuy nhiên thiếu "stub" perforation hoặc kiểu vé xé – cảm giác chưa "ra ticket".
+- Không có nút Download / Share / Add to wallet (giữ phạm vi UI, không gọi API mới).
+- `TicketDetailPage` ở chế độ `lookup` chỉ là placeholder, không có form nhập mã → trải nghiệm rất kém. Có thể bổ sung form input nhỏ + button submit (giữ logic gọi cùng API `getTicketByCode`).
 
-### 4.5 Admin Management Flow
+### 3.9. Loading / Error / Empty
 
-1. Admin login bằng `POST /api/v1/admin/login`.
-2. Frontend lưu access token.
-3. Các API admin gửi header `Authorization: Bearer <token>`.
-4. Admin tạo dữ liệu nền: venue -> event -> schedule -> day -> ticket config -> artist -> assign artist.
-5. Admin theo dõi bookings/refunds.
-6. Admin hủy event khi cần, backend tạo refund requests.
+- Cả 3 đều là 1 box giống nhau chỉ khác màu nền. Không có skeleton placeholder cho event card. Loading khá trống.
 
-Backend gap: admin events hiện chưa có endpoint list/get event trong admin router. Có thể dùng public `GET /api/v1/events` để list active, nhưng admin cần xem cả cancelled/inactive.
+---
 
-## 5. Sitemap
+## 4. Design system đề xuất (cho đợt refactor này)
 
-```txt
-/
-/events
-/events/:eventId
-/events/:eventId/book
-/checkout/:bookingId
-/booking/:bookingId/tickets
-/tickets/:ticketCode
+### 4.1. Color tokens
 
-/admin/login
-/admin
-/admin/events
-/admin/events/new
-/admin/events/:eventId/edit
-/admin/events/:eventId/setup
-/admin/venues
-/admin/artists
-/admin/bookings
-/admin/refunds
-/admin/settings
+Dùng biến CSS, kết hợp giữa "tin cậy" (deep ink) và "concert" (electric magenta/violet gradient).
+
+```css
+--page-bg:       #f7f8fc;   /* nền page */
+--surface:       #ffffff;
+--surface-soft:  #f1f4fb;
+--surface-muted: #eef0f6;
+--border:        #e3e7f1;
+--border-strong: #cbd2e3;
+--text:          #0f172a;
+--text-muted:    #5b6478;
+--text-soft:     #8892a6;
+
+/* Brand */
+--primary:        #6d28d9;  /* violet 700 */
+--primary-strong: #5b21b6;
+--primary-soft:   #ede9fe;
+--accent:         #ec4899;  /* pink 500 */
+--accent-soft:    #fce7f3;
+--gradient-hero:  linear-gradient(135deg, #4c1d95 0%, #6d28d9 35%, #db2777 100%);
+--gradient-cta:   linear-gradient(135deg, #6d28d9 0%, #ec4899 100%);
+
+/* Semantic */
+--success: #16a34a; --success-soft: #dcfce7;
+--warning: #d97706; --warning-soft: #fef3c7;
+--danger:  #dc2626; --danger-soft:  #fee2e2;
+--info:    #2563eb; --info-soft:    #dbeafe;
+
+/* Effects */
+--shadow-sm: 0 1px 2px rgba(15,23,42,.06), 0 1px 3px rgba(15,23,42,.05);
+--shadow-md: 0 8px 24px -8px rgba(15,23,42,.16), 0 4px 8px -4px rgba(15,23,42,.08);
+--shadow-lg: 0 24px 48px -16px rgba(76,29,149,.22), 0 8px 16px -8px rgba(15,23,42,.10);
+--ring: 0 0 0 4px rgba(109,40,217,.18);
 ```
 
-## 6. Page List
+### 4.2. Typography
 
-### 6.1 Customer Pages
-
-| Page | Route | Purpose | Main APIs |
-|---|---|---|---|
-| HomePage | `/` | Landing + featured events | `GET /api/v1/events` |
-| EventListPage | `/events` | Browse/search/filter events | `GET /api/v1/events` |
-| EventDetailPage | `/events/:eventId` | Detail, schedule/day/ticket options | `GET /api/v1/events/{event_id}` |
-| BookingPage | `/events/:eventId/book` | Form chọn vé và nhập thông tin | `POST /api/v1/reservations` |
-| CheckoutPage | `/checkout/:bookingId` | Tạo payment và hướng dẫn thanh toán | `POST /api/v1/payments/create` |
-| BookingTicketsPage | `/booking/:bookingId/tickets` | Xem vé theo booking | `GET /api/v1/tickets/booking/{booking_id}` |
-| TicketDetailPage | `/tickets/:ticketCode` | Xem/scan một vé | `GET /api/v1/tickets/{ticket_code}` |
-
-### 6.2 Admin Pages
-
-| Page | Route | Purpose | Main APIs |
-|---|---|---|---|
-| AdminLoginPage | `/admin/login` | Login admin | `POST /api/v1/admin/login` |
-| AdminDashboardPage | `/admin` | Overview metrics, quick actions | bookings/refunds/events APIs |
-| AdminEventListPage | `/admin/events` | List/search/manage events | missing admin list; fallback public list |
-| AdminEventFormPage | `/admin/events/new`, `/admin/events/:eventId/edit` | Create/update event | `POST /api/v1/admin/events`, `PUT /api/v1/admin/events/{id}` |
-| AdminEventSetupPage | `/admin/events/:eventId/setup` | Schedule/day/ticket config/artist setup | `POST /api/v1/admin/events/schedules`, `/days`, `/ticket-configs`, `/api/v1/admin/artists/assign` |
-| AdminVenuePage | `/admin/venues` | CRUD venues | `GET/POST/PUT /api/v1/admin/venues` |
-| AdminArtistPage | `/admin/artists` | Create/list artists | `GET/POST /api/v1/admin/artists` |
-| AdminBookingPage | `/admin/bookings` | Booking list and status | `GET /api/v1/admin/bookings` |
-| AdminRefundPage | `/admin/refunds` | Pending refunds and process action | `GET /api/v1/admin/refunds/pending`, `POST /api/v1/admin/refunds/process-all` |
-| AdminSettingsPage | `/admin/settings` | Demo config/help page | no backend required initially |
-
-## 7. Routing Plan
-
-Use React Router v6.
-
-Proposed route grouping:
-
-```txt
-CustomerLayout
-  /
-  /events
-  /events/:eventId
-  /events/:eventId/book
-  /checkout/:bookingId
-  /booking/:bookingId/tickets
-  /tickets/:ticketCode
-
-AdminAuthLayout
-  /admin/login
-
-AdminLayout (ProtectedRoute)
-  /admin
-  /admin/events
-  /admin/events/new
-  /admin/events/:eventId/edit
-  /admin/events/:eventId/setup
-  /admin/venues
-  /admin/artists
-  /admin/bookings
-  /admin/refunds
-  /admin/settings
-```
-
-Protected admin routes:
-
-- If no token: redirect to `/admin/login`.
-- If token exists but API returns 401: clear token and redirect to login.
-
-## 8. Layout Structure
-
-### 8.1 CustomerLayout
-
-Sections:
-
-- Header: logo, nav links, admin link secondary.
-- Main content: constrained width, page-specific.
-- Footer: project/demo info.
-
-Customer pages should avoid heavy dashboard patterns. They should feel like a booking website:
-
-- Event cards in grid.
-- Event detail with prominent event banner, date/location/ticket selection.
-- Booking flow with step indicator.
-- Sticky summary panel on desktop, bottom summary bar on mobile.
-
-### 8.2 AdminLayout
-
-Sections:
-
-- Sidebar: Dashboard, Events, Venues, Artists, Bookings, Refunds, Settings.
-- Topbar: current page title, admin account, logout.
-- Content area: table/list/form sections.
-
-Admin dashboard should be dense but readable:
-
-- Metric cards for active events, pending bookings, pending refunds.
-- Recent bookings table.
-- Operational alerts such as refunds pending or events missing setup.
-
-## 9. Component Structure
-
-Recommended folder structure:
-
-```txt
-src/
-  api/
-    client.ts
-    events.ts
-    reservations.ts
-    payments.ts
-    tickets.ts
-    adminAuth.ts
-    adminEvents.ts
-    adminVenues.ts
-    adminArtists.ts
-    adminBookings.ts
-    adminRefunds.ts
-  components/
-    common/
-      Button.tsx
-      Input.tsx
-      Select.tsx
-      Textarea.tsx
-      Badge.tsx
-      Card.tsx
-      Modal.tsx
-      Table.tsx
-      EmptyState.tsx
-      LoadingState.tsx
-      ErrorState.tsx
-      ConfirmDialog.tsx
-    layout/
-      CustomerLayout.tsx
-      AdminLayout.tsx
-      AdminSidebar.tsx
-      AdminTopbar.tsx
-    events/
-      EventCard.tsx
-      EventGrid.tsx
-      EventSearchBar.tsx
-      EventStatusBadge.tsx
-      EventHero.tsx
-      SchedulePicker.tsx
-      EventDayPicker.tsx
-      TicketTypePicker.tsx
-    booking/
-      BookingStepIndicator.tsx
-      CustomerInfoForm.tsx
-      TicketQuantityControl.tsx
-      BookingSummary.tsx
-      ReservationTimer.tsx
-    payment/
-      PaymentMethodSelector.tsx
-      PaymentInstructionPanel.tsx
-      PaymentStatusBadge.tsx
-    tickets/
-      TicketCard.tsx
-      TicketQRCode.tsx
-      TicketStatusBadge.tsx
-    admin/
-      AdminMetricCard.tsx
-      AdminDataToolbar.tsx
-      EventForm.tsx
-      VenueForm.tsx
-      ArtistForm.tsx
-      ScheduleForm.tsx
-      EventDayForm.tsx
-      TicketConfigForm.tsx
-      ArtistAssignmentPanel.tsx
-      BookingTable.tsx
-      RefundTable.tsx
-  pages/
-    customer/
-    admin/
-  hooks/
-  store/
-  types/
-  utils/
-```
-
-## 10. API Integration Plan
-
-### 10.1 API Client
-
-Create a shared API client around `fetch`:
-
-- Base URL from `VITE_API_URL`, default `http://localhost:8000/api/v1`.
-- JSON request/response helpers.
-- Automatic `Authorization` header for admin routes when token exists.
-- Normalize errors into `{ message, status, details }`.
-
-### 10.2 Public API Modules
-
-`api/events.ts`
-
-- `getEvents(params?: { skip?: number; limit?: number })`
-- `getEvent(eventId: number)`
-
-`api/reservations.ts`
-
-- `createReservation(payload: ReservationRequest)`
-
-`api/payments.ts`
-
-- `createPayment(payload: PaymentCreate)`
-- `simulatePaymentWebhook(payload: PaymentWebhookPayload)` for demo-only UI if allowed.
-
-`api/tickets.ts`
-
-- `getTicketsByBooking(bookingId: number)`
-- `getTicketByCode(ticketCode: string)`
-
-### 10.3 Admin API Modules
-
-`api/adminAuth.ts`
-
-- `login(username: string, password: string)`
-
-`api/adminEvents.ts`
-
-- `createEvent(payload)`
-- `updateEvent(eventId, payload)`
-- `cancelEvent(eventId, reason)`
-- `createSchedule(payload)`
-- `createEventDay(payload)`
-- `createTicketConfig(payload)`
-
-`api/adminVenues.ts`
-
-- `listVenues()`
-- `getVenue(id)`
-- `createVenue(payload)`
-- `updateVenue(id, payload)`
-
-`api/adminArtists.ts`
-
-- `listArtists()`
-- `createArtist(payload)`
-- `assignArtist(payload)`
-
-`api/adminBookings.ts`
-
-- `listBookings()`
-
-`api/adminRefunds.ts`
-
-- `listPendingRefunds()`
-- `processAllRefunds()`
-
-## 11. Type Structure
-
-Frontend types should mirror backend schemas:
-
-```txt
-types/event.ts
-types/schedule.ts
-types/venue.ts
-types/artist.ts
-types/ticketConfig.ts
-types/booking.ts
-types/payment.ts
-types/ticket.ts
-types/refund.ts
-types/api.ts
-```
-
-Important status unions:
-
-```ts
-type EventStatus = "ACTIVE" | "CANCELLED" | "INACTIVE";
-type BookingStatus = "PENDING_PAYMENT" | "PAID" | "PAYMENT_FAILED" | "CANCELLED" | "REFUNDING" | "REFUNDED" | "REFUND_FAILED";
-type PaymentStatus = "INITIATED" | "SUCCESS" | "FAILED" | "EXPIRED";
-type TicketStatus = "VALID" | "USED" | "CANCELLED" | "REFUNDED";
-type RefundStatus = "PENDING" | "PROCESSING" | "SUCCESS" | "FAILED";
-```
-
-## 12. State Management Plan
-
-Avoid Redux initially. Use React state + Context + custom hooks because the project is medium-sized and easier to demo.
-
-Global state:
-
-- `AuthContext`: admin token, login/logout, auth status.
-- `BookingDraftContext` or local storage: selected event, schedule, event day, ticket configs, quantities, customer info.
-
-Server state:
-
-- For first implementation, use custom hooks with `useEffect`, `useState`, `useCallback`.
-- Later improvement: add TanStack Query if project allows dependency growth.
-
-Local page state:
-
-- Filters/search/sort in event list.
-- Form data in booking/admin forms.
-- Modal open/close states.
-- Table pagination state.
-
-Persisted state:
-
-- Admin token in `localStorage`.
-- Last booking ID optionally in `sessionStorage` for checkout recovery.
-
-## 13. Data Flow Chính
-
-### 13.1 Customer Booking Data Flow
-
-```txt
-EventListPage
-  -> getEvents()
-  -> customer selects event
-
-EventDetailPage
-  -> getEvent(eventId)
-  -> customer selects schedule/day/ticket configs
-  -> BookingDraft state
-
-BookingPage
-  -> customer fills information
-  -> createReservation()
-  -> receives BookingRead
-  -> navigate /checkout/:bookingId
-
-CheckoutPage
-  -> createPayment({ booking_id, payment_method })
-  -> show payment transaction/status
-  -> after success/demo webhook, navigate /booking/:bookingId/tickets
-
-BookingTicketsPage
-  -> getTicketsByBooking(bookingId)
-  -> render ticket cards and QR
-```
-
-### 13.2 Admin Setup Data Flow
-
-```txt
-AdminLoginPage
-  -> login()
-  -> store token
-  -> navigate /admin
-
-AdminVenuePage
-  -> create/list/update venues
-
-AdminEventFormPage
-  -> create event
-
-AdminEventSetupPage
-  -> create schedule with event_id + venue_id
-  -> create event days
-  -> create ticket configs
-  -> create/list artists
-  -> assign artists to event day
-
-AdminBookingPage
-  -> list bookings
-
-AdminRefundPage
-  -> list pending refunds
-  -> process all refunds
-```
-
-## 14. Customer Website Structure
-
-### HomePage
-
-Purpose:
-
-- Introduce booking platform.
-- Show featured/upcoming active events.
-- Provide clear CTA to browse events.
-
-Sections:
-
-- Header/nav.
-- Search/filter strip.
-- Featured events grid.
-- Simple explanation of booking steps.
-
-### EventListPage
-
-Purpose:
-
-- Browse all active events.
-
-Features:
-
-- Search by event name.
-- Filter by status if backend later supports.
-- Event cards with banner, status, short description.
-- Empty state when no events.
-
-### EventDetailPage
-
-Purpose:
-
-- Help customer decide and start booking.
-
-Sections:
-
-- Event banner and summary.
-- Description.
-- Schedule/day/ticket selection.
-- Artist list if backend provides it.
-- CTA: "Book tickets".
-
-Backend TODO:
-
-- Provide event detail with schedules, venue, days, ticket configs, remaining quantity and artists.
-
-### BookingPage
-
-Purpose:
-
-- Capture booking details and create reservation.
-
-Layout:
-
-- Left: customer info and ticket selection.
-- Right: booking summary.
-- Mobile: summary becomes sticky bottom or collapsible panel.
-
-Validation:
-
-- Name required.
-- Phone required.
-- Email valid.
-- Payment account required for refunds.
-- Quantity > 0.
-
-### CheckoutPage
-
-Purpose:
-
-- Start payment and show payment instructions.
-
-States:
-
-- Payment not started.
-- Payment initiated.
-- Payment success.
-- Payment failed.
-- Reservation expired.
-
-Backend TODO:
-
-- Provide payment QR/payment URL/instructions and payment expiry.
-- Provide endpoint to fetch booking/payment status.
-
-### Ticket Pages
-
-Purpose:
-
-- Display e-tickets after successful payment.
-
-Features:
-
-- Ticket QR image.
-- Ticket code.
-- Ticket status.
-- Event/date/venue info if backend returns enriched detail.
-
-Backend TODO:
-
-- `ETicketDetailRead` exists but current route returns `ETicketRead`; route could return enriched ticket detail.
-
-## 15. Admin Dashboard Structure
-
-### AdminDashboardPage
-
-Widgets:
-
-- Active events count.
-- Pending bookings count.
-- Pending refunds count.
-- Recent bookings table.
-- Quick actions: create event, create venue, add artist.
-
-Backend TODO:
-
-- Add dashboard summary endpoint or compute using existing list endpoints.
-
-### AdminEventListPage
-
-Features:
-
-- Event table with event name, status, created_at.
-- Actions: edit, setup, cancel.
-- Status filters.
-
-Backend TODO:
-
-- Add `GET /api/v1/admin/events` to list all events, including cancelled/inactive.
-- Add `GET /api/v1/admin/events/{event_id}` if admin edit page needs full data.
-
-### AdminEventSetupPage
-
-Purpose:
-
-- Configure one event end-to-end.
-
-Panels:
-
-- Event basic info summary.
-- Schedule list by venue.
-- Event days under selected schedule.
-- Ticket config table.
-- Artist assignment by event day.
-- Validation warnings: capacity exceeded, backup artist count < 2.
-
-Backend TODO:
-
-- Add list/get endpoints for schedules by event, days by schedule, ticket configs by schedule, artists assigned by event day.
-- Enforce or expose backup artist validation result.
-
-### AdminVenuePage
-
-Features:
-
-- Venue table.
-- Create/edit modal or side panel.
-- Capacity visible because it affects ticket config.
-
-### AdminArtistPage
-
-Features:
-
-- Artist table.
-- Create artist form.
-- Optional image URL preview.
-
-Backend TODO:
-
-- Add update/delete artist APIs if full CRUD is required.
-
-### AdminBookingPage
-
-Features:
-
-- Booking table.
-- Status badges.
-- Search by customer/email/phone locally.
-- Basic details drawer if backend supports detail later.
-
-Backend TODO:
-
-- Add `GET /api/v1/admin/bookings/{booking_id}` for detail.
-- Add filters by status/date.
-
-### AdminRefundPage
-
-Features:
-
-- Pending refunds table.
-- Process all button.
-- Status result feedback.
-
-Backend TODO:
-
-- Add all refunds list and retry single refund endpoint for better admin UX.
-
-## 16. Responsive Strategy
-
-Breakpoints:
-
-- Mobile: < 640px.
-- Tablet: 640px - 1024px.
-- Desktop: > 1024px.
-
-Customer:
-
-- Event cards: 1 column mobile, 2 columns tablet, 3 columns desktop.
-- Booking form: single column mobile; two-column form + summary desktop.
-- Header nav collapses into simple menu on mobile.
-
-Admin:
-
-- Desktop: persistent sidebar.
-- Tablet/mobile: sidebar collapses into drawer.
-- Tables: use horizontal scroll or card-style rows on mobile.
-- Forms: full-width stacked inputs on mobile.
-
-## 17. Loading, Error, Empty States
-
-Every API-backed page should define:
-
-- Loading state: skeleton/card/table placeholder.
-- Error state: concise message + retry button.
-- Empty state: explanation + next action.
-
-Examples:
-
-- Event list empty: "No active events yet."
-- Booking no tickets: "No tickets have been issued for this booking yet."
-- Admin venues empty: "Create a venue before creating schedules."
-- Refunds empty: "No pending refunds."
-
-Form error handling:
-
-- Field-level validation before submit.
-- API error banner after submit.
-- Disable submit while request is pending.
-- Keep user input when API fails.
-
-## 18. API Gaps And Backend TODOs
-
-These gaps should be considered before or during frontend implementation:
-
-1. Public event detail is too shallow for full booking UI.
-   - Need schedules, venue, event_days, ticket_configs, remaining_quantity, artists.
-
-2. Admin event list/get APIs are missing.
-   - Need list all events, get event by id, possibly include cancelled/inactive.
-
-3. Admin setup read APIs are missing.
-   - Need list schedules by event.
-   - Need list event days by schedule.
-   - Need list ticket configs by schedule.
-   - Need list assigned artists by event_day.
-
-4. Payment create response lacks demo payment UX fields.
-   - Useful fields: payment instructions, QR URL/base64, expired_at, amount, reference code.
-
-5. Booking detail endpoint is missing for customer/admin.
-   - Customer checkout refresh needs `GET /booking/{booking_id}` or similar.
-
-6. Ticket detail route returns basic ticket only.
-   - UI would benefit from event_name, venue_name, date, ticket_type, customer_name.
-
-7. Admin artist update/delete missing.
-
-8. Admin venue delete missing.
-
-9. Refund single retry/manual refund missing.
-
-10. Route `backend/app/api/v1/ticket.py` appears legacy and does not match current ticket schema.
-    - It is not included in `main.py`; frontend should use `tickets.py` routes only.
-
-## 19. Implementation Roadmap
-
-### Phase 1 - Frontend Foundation
-
-- Replace current demo types with backend-aligned types.
-- Build shared API client.
-- Build common UI components.
-- Add layouts: `CustomerLayout`, `AdminLayout`.
-- Add auth context and protected admin route.
-
-### Phase 2 - Customer Browse
-
-- Implement home page.
-- Implement event list page.
-- Implement event detail page using available data.
-- Add TODO fallback UI for missing schedule/ticket nested data.
-
-### Phase 3 - Customer Booking
-
-- Implement booking draft state.
-- Implement booking form.
-- Integrate `POST /api/v1/reservations`.
-- Implement checkout page with `POST /api/v1/payments/create`.
-- Implement ticket list page.
-
-### Phase 4 - Admin Core
-
-- Implement admin login.
-- Implement admin dashboard shell.
-- Implement venue management.
-- Implement artist management.
-- Implement event create/edit.
-
-### Phase 5 - Admin Event Setup
-
-- Implement schedule creation.
-- Implement event day creation.
-- Implement ticket config creation.
-- Implement artist assignment.
-- Add validation messaging for capacity and backup artists.
-
-### Phase 6 - Admin Operations
-
-- Implement bookings table.
-- Implement refunds page.
-- Implement cancel event action.
-- Add status badges and operational alerts.
-
-### Phase 7 - Polish And Demo Readiness
-
-- Improve responsive behavior.
-- Add loading/error/empty states everywhere.
-- Add mock/demo data fallback only where backend API is missing.
-- Verify end-to-end demo path:
-  - Admin creates venue/event/setup.
-  - Customer books.
-  - Payment simulated.
-  - Ticket generated.
-  - Admin views booking/refund.
-
-## 20. Final Architecture Proposal
-
-Use a feature-oriented React structure with clear separation:
-
-- API clients per backend domain.
-- Types per backend schema domain.
-- Common components for UI primitives.
-- Domain components for booking/events/admin.
-- Pages as route-level containers.
-- Context only for auth and booking draft.
-
-Do not change backend architecture while implementing frontend. Any backend mismatch should be recorded as TODO and handled with graceful UI fallback until backend APIs are added.
+- **Display font** (heading): `"Plus Jakarta Sans"` qua Google Fonts (weight 600, 700, 800). Fallback `Inter`, `Segoe UI`.
+- **Body**: `"Inter"` (weight 400, 500, 600).
+- Scale (clamp cho responsive):
+  - `h1` display: `clamp(2.25rem, 4.5vw, 3.5rem)`, weight 800, letter-spacing `-0.02em`.
+  - `h2`: `clamp(1.5rem, 2.4vw, 2rem)`, weight 700, letter-spacing `-0.01em`.
+  - `h3`: `1.125rem`, weight 700.
+  - body: `0.975rem`, line-height `1.55`.
+  - small/muted: `0.85rem`.
+
+### 4.3. Spacing & radius
+
+- Spacing scale: 4 / 8 / 12 / 16 / 24 / 32 / 48 / 64 px.
+- Radius: `--radius-sm: 8px`, `--radius-md: 14px`, `--radius-lg: 20px`, `--radius-pill: 999px`.
+- Card mặc định: `--radius-lg` (20px), shadow `--shadow-md`, border `1px solid var(--border)`.
+
+### 4.4. Components
+
+- **Button**: 3 size (sm/md/lg). Primary dùng gradient `--gradient-cta`, hover slight lift + shadow. Variants: primary, secondary (soft), ghost, danger, outline (mới).
+- **Badge**: pill, có biến `solid` (nền đậm) và `soft` (nền pastel). Default = soft, tự suy theo status như hiện tại.
+- **Card**: thêm class chung `.surface-card` để tái dùng. Hover lift nhẹ.
+- **Chip / Tag**: cho metadata trong card (`Hà Nội`, `27/5/2026`, `Từ 500.000đ`).
+- **Skeleton**: thêm `.skeleton` (background gradient animation) cho loading event card.
+
+### 4.5. Iconography
+
+Không add icon library. Dùng inline SVG nhỏ trong markup khi cần (icon location, calendar, ticket, arrow). Có thể tạo helper `Icon.tsx` chứa các SVG cần thiết.
+
+### 4.6. Responsive
+
+- Breakpoint chính: 1024px, 768px, 560px.
+- Mobile-first cho nav (horizontal scroll), grid event xuống 1 cột < 560px, 2 cột < 1024px, 3 cột ≥ 1024px.
+- Sticky CTA "Book tickets" ở event detail (mobile).
+
+---
+
+## 5. Kế hoạch sửa từng file / page / component
+
+### 5.1. Sửa (refactor) – KHÔNG đổi public API
+
+| File | Thay đổi chính |
+|------|---------------|
+| `index.html` | Thêm `<link>` Google Fonts (Plus Jakarta Sans + Inter). Đặt `<title>` mô tả hơn: "Eventify – Concert & Event Tickets". |
+| `src/styles/globals.css` | **Viết lại toàn bộ**: tokens mới, typography, layout helpers, component classes (`.surface-card`, `.chip`, `.skeleton`, ...). Giữ tên class cũ mà các component đang dùng (`.event-card`, `.hero`, `.summary-panel`, ...) – chỉ đổi cách hiển thị. |
+| `src/components/layout/CustomerLayout.tsx` | Header có brand mới (logo svg + gradient text), nav active state rõ, thêm CTA "Book now". Footer 3 cột (brand + nav + copyright). |
+| `src/pages/customer/HomePage.tsx` | Hero gradient + badge + dual CTA + stats; section "Featured events" với heading mới; thêm section "How it works" (3 step) và CTA strip cuối. Giữ nguyên `useAsync(() => getEvents(...))`. |
+| `src/pages/customer/EventListPage.tsx` | Header đẹp hơn, search box dùng icon SVG bên trong, hiển thị count results. Loading dùng skeleton. Giữ logic filter `query`. |
+| `src/components/events/EventCard.tsx` | Card mới: ảnh ratio 16/10, badge nổi trên ảnh, meta chip (city, date, from price), title clamp 2 dòng, CTA "View details" arrow. Toàn bộ card clickable (wrap `<Link>`). Lấy thêm dữ liệu từ event nếu có trong `EventSummary`/`EventRead` mở rộng – nhưng vì `EventSummary` hiện chỉ có `event_name`, `description`, `banner_url`, `status`, `number_of_days` nên các meta khác để optional/empty. Không gọi API mới. |
+| `src/pages/customer/EventDetailPage.tsx` | Hero stack ảnh full-width + content phía dưới; phân chia rõ "Giới thiệu", "Lịch diễn", "Loại vé"; sticky bottom CTA mobile. Giữ nguyên data shape. |
+| `src/pages/customer/BookingPage.tsx` | Chia rõ 3 nhóm: "Thông tin liên hệ", "Lịch & ngày diễn", "Chọn vé". Seat list thành grid chip 3–5 cột. Vẫn dùng `toggleSeat`, `createReservation`, navigate giữ nguyên. |
+| `src/components/booking/BookingSummary.tsx` | Sidebar gọn hơn, có icon, hiển thị số vé chọn và tổng tiền nổi bật, hint nếu chưa chọn vé. Không thay đổi prop. |
+| `src/pages/customer/CheckoutPage.tsx` | Step indicator 3 bước (Reservation → Payment → Tickets). Card receipt nổi bật. Khi thành công, CTA lớn "View my tickets". |
+| `src/pages/customer/BookingTicketsPage.tsx` | PageHeader có icon + breadcrumb-ish text. Empty state có illustration nhẹ (SVG inline). |
+| `src/pages/customer/TicketDetailPage.tsx` | Chế độ `lookup`: thêm form `<input>` + button "Look up" navigate tới `/tickets/{value}`. Tạm thời chỉ gọi `getTicketByCode` khi không phải lookup (`enabled` pattern bằng cách return promise pending). |
+| `src/components/tickets/TicketCard.tsx` | Style "ticket-stub": có notch hai bên, dashed divider, QR khung lớn hơn, info layout 2 cột. |
+| `src/components/common/Button.tsx` | Thêm prop `size?: "sm"\|"md"\|"lg"` và variant `outline`. Default vẫn `primary`/`md` – không phá call site cũ. |
+| `src/components/common/Badge.tsx` | Thêm prop `variant?: "soft"\|"solid"` (default `soft`). Vẫn auto-map status như cũ. |
+| `src/components/common/AsyncState.tsx` | `LoadingState` nhận optional `variant: "card"` để render skeleton placeholder (dùng cho event grid). Mặc định behavior cũ. |
+| `src/components/common/PageHeader.tsx` | Thêm slot `eyebrowIcon?: ReactNode` (optional). Không phá props cũ. |
+
+### 5.2. Tạo mới
+
+| File mới | Lý do |
+|----------|-------|
+| `src/components/common/Icon.tsx` | Tập hợp SVG inline (calendar, location, ticket, arrow-right, search, check, sparkles, qr...). |
+| `src/components/common/Skeleton.tsx` | Block skeleton dùng cho card grid khi loading. |
+
+### 5.3. KHÔNG đụng tới
+
+- Toàn bộ `src/api/*.ts` (giữ endpoint, function signature).
+- `src/hooks/useAsync.ts`.
+- `src/types/*.ts` (đợt này cố gắng không sửa).
+- `src/utils/format.ts`.
+- Backend, schema, .env.
+
+---
+
+## 6. Nguyên tắc khi refactor
+
+1. **Không đổi import path** mà các page khác đang dùng. Mọi component vẫn export với cùng tên.
+2. **Không đổi prop bắt buộc** đã có. Chỉ thêm prop optional.
+3. **Không đổi tên class CSS** đang được tham chiếu trong TSX, trừ khi mình thay luôn TSX. Khi đổi, đổi đồng bộ ở cả CSS + TSX.
+4. **Giữ key tiếng Anh trong UI** vì codebase hiện tại dùng tiếng Anh. Có thể thêm vài cụm tiếng Việt nếu phù hợp với context demo (đang format VND ở `format.ts`).
+5. **Test bằng `npm run build`** (`tsc && vite build`) sau khi xong để chắc không vỡ TypeScript.
+
+---
+
+## 7. Vấn đề logic / API phát hiện trong lúc rà UI (KHÔNG tự ý sửa)
+
+1. **`/tickets/lookup` không có form thực sự** – `TicketDetailPage` xử lý case `ticketCode === "lookup"` bằng `EmptyState`, nhưng `useAsync(() => getTicketByCode("lookup"))` vẫn được gọi và sẽ báo 404 trước khi component return. Một request thừa + có thể flash error. UI sẽ thêm form thực, còn việc gate API call có điều kiện nên do logic owner xử lý sau.
+2. **`CheckoutPage` đọc booking từ `location.state`** – nếu user F5 hoặc paste URL trực tiếp, `booking` undefined → receipt không hiển thị nhưng vẫn cho phép tạo payment. Đợt này UI sẽ show fallback nhẹ nhàng, không sửa logic.
+3. **`EventCard` thiếu meta**: `EventSummary` chỉ trả `event_id, event_name, description, banner_url, status, number_of_days`. Muốn card hiển thị "Tp.HCM • 27/5 • Từ 500.000đ" cần API trả thêm field hoặc gọi `/events/:id` per card. Đợt này: chỉ hiển thị `number_of_days` + `status`, các meta khác để placeholder/bỏ qua.
+4. **`Badge` map status case-sensitive uppercase**: nếu backend trả `Active` lower thì badge default `neutral`. Không sửa, chỉ note.
+5. **Route `/admin/*` không có** trong `App.tsx` (mặc dù README đề cập) → hiện UI customer là duy nhất. Đợt nâng cấp này không tạo trang admin mới.
+6. **Header link `/tickets/lookup` ↔ route `/tickets/:ticketCode`**: `lookup` đang match `:ticketCode` thay vì là route riêng. Sau đợt này có thể tách thành route `/tickets-lookup` rõ ràng, nhưng đó là refactor logic, để lại.
+
+---
+
+## 8. Lộ trình thực hiện (sẽ làm theo thứ tự)
+
+1. Viết lại `globals.css` (foundation).
+2. Sửa `index.html` (font + title).
+3. Update `CustomerLayout` (header + footer mới).
+4. Tạo `Icon.tsx` + `Skeleton.tsx`.
+5. Sửa common: `Button`, `Badge`, `AsyncState`, `PageHeader` (thêm prop optional, không phá cũ).
+6. Sửa `EventCard`.
+7. Sửa `HomePage`.
+8. Sửa `EventListPage`.
+9. Sửa `EventDetailPage`.
+10. Sửa `BookingPage` + `BookingSummary`.
+11. Sửa `CheckoutPage`.
+12. Sửa `BookingTicketsPage`, `TicketDetailPage`, `TicketCard`.
+13. Chạy `npm run build` để verify TypeScript & Vite không vỡ.
+14. Liệt kê tóm tắt thay đổi cho user.
+
+---
+
+## 9. Tiêu chí "xong"
+
+- [x] Có `UI_Structure.md` với cấu trúc, vấn đề, kế hoạch, design system.
+- [ ] Tất cả page customer vẫn navigate được như cũ.
+- [ ] `npm run build` (`tsc && vite build`) pass.
+- [ ] Không có file API/types/hooks bị thay đổi behavior.
+- [ ] Header / hero / event card / detail / booking / checkout / tickets đều có visual mới, responsive desktop + mobile.

@@ -3,6 +3,7 @@ import { Link, useLocation, useParams } from "react-router-dom";
 import { createPayment, processPayment } from "../../api/payments";
 import { Badge } from "../../components/common/Badge";
 import { Button } from "../../components/common/Button";
+import { Icon } from "../../components/common/Icon";
 import { PageHeader } from "../../components/common/PageHeader";
 import type { BookingRead } from "../../types/booking";
 import type { PaymentMethod, PaymentProcessResult, PaymentRead } from "../../types/payment";
@@ -65,6 +66,8 @@ function CheckoutPage() {
     }
   }
 
+  const step = webhookMessage ? 3 : payment ? 2 : 1;
+
   return (
     <div className="stack-lg">
       <PageHeader
@@ -72,8 +75,24 @@ function CheckoutPage() {
         title="Payment"
         description="Choose online banking or card payment, then continue the checkout flow described in the system design."
       />
+
+      <div className="checkout-steps">
+        <div className={`checkout-step ${step > 1 ? "done" : "active"}`}>
+          <span className="checkout-step-index">{step > 1 ? <Icon name="check" size={14} /> : "1"}</span>
+          Reservation
+        </div>
+        <div className={`checkout-step ${step === 2 ? "active" : step > 2 ? "done" : ""}`}>
+          <span className="checkout-step-index">{step > 2 ? <Icon name="check" size={14} /> : "2"}</span>
+          Payment
+        </div>
+        <div className={`checkout-step ${step === 3 ? "done" : ""}`}>
+          <span className="checkout-step-index">{step === 3 ? <Icon name="check" size={14} /> : "3"}</span>
+          Tickets
+        </div>
+      </div>
+
       <section className="panel stack-md">
-        {booking && (
+        {booking ? (
           <div className="booking-receipt">
             <div>
               <span>Customer</span>
@@ -85,11 +104,20 @@ function CheckoutPage() {
             </div>
             <div>
               <span>Total</span>
-              <strong>{formatCurrency(booking.total_amount)}</strong>
+              <strong style={{ background: "var(--gradient-cta)", WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" }}>
+                {formatCurrency(booking.total_amount)}
+              </strong>
             </div>
             <div>
               <span>Created</span>
               <strong>{formatDateTime(booking.created_at)}</strong>
+            </div>
+          </div>
+        ) : (
+          <div className="state-box">
+            <div>
+              <strong>Booking #{bookingId}</strong>
+              <p>Booking details were not passed to this page. Continue to create a payment.</p>
             </div>
           </div>
         )}
@@ -181,6 +209,19 @@ function CheckoutPage() {
           <div className="inline-actions">
             <Link className="button button-secondary" to={`/booking/${bookingId}/tickets`}>
               View tickets
+            </Link>
+          </div>
+        )}
+
+        {webhookMessage && (
+          <div className="success-box">
+            <div>
+              <strong>{webhookMessage}</strong>
+              <p>Your electronic tickets have been generated and are ready to use.</p>
+            </div>
+            <Link className="button button-primary" to={`/booking/${bookingId}/tickets`}>
+              View my tickets
+              <Icon name="arrow-right" size={14} />
             </Link>
           </div>
         )}
