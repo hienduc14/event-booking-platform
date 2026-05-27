@@ -713,6 +713,12 @@ th {
   grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
 }
 
+.booking-ticket-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
 /* ------------------------------------------------------------------ */
 /* Event card                                                          */
 /* ------------------------------------------------------------------ */
@@ -1800,6 +1806,8 @@ th {
     gap: 0.8rem;
     padding: 1rem 0;
   }
+}
+
 .auth-page {
   min-height: 100vh;
   display: grid;
@@ -1876,7 +1884,7 @@ th {
 
   .summary-panel {
     position: static;
-}
+  }
   .page-header {
     flex-direction: column;
     align-items: stretch;

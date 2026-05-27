@@ -66,7 +66,7 @@ function CheckoutPage() {
     }
   }
 
-  const step = webhookMessage ? 3 : payment ? 2 : 1;
+  const step = result?.tickets_ready ? 3 : payment ? 2 : 1;
 
   return (
     <div className="stack-lg">
@@ -166,7 +166,9 @@ function CheckoutPage() {
                     Refund account
                     <input value={refundAccount} onChange={(event) => setRefundAccount(event.target.value)} placeholder="Your refund bank account" />
                   </label>
-                  <Button type="button" disabled={loading} onClick={() => void handleContinue()}>
+                  <Button type="button" disabled={loading} onClick={() => void handleContinue()}
+                    style={{ marginTop: "1rem" }}  
+                  >
                     {loading ? "Submitting..." : "Continue"}
                   </Button>
                 </div>
@@ -181,11 +183,15 @@ function CheckoutPage() {
                 </div>
                 <div className="payment-form-card">
                   <h3>Card information</h3>
-                  <label>
+                  <label
+                    style={{ marginTop: "1rem" }} 
+                  >
                     Card number
                     <input value={cardNumber} onChange={(event) => setCardNumber(event.target.value)} placeholder="1234 5678 9012 3456" />
                   </label>
-                  <div className="payment-inline-fields">
+                  <div className="payment-inline-fields"
+                    style={{ marginTop: "0.5rem" }} 
+                  >
                     <label>
                       Expiration
                       <input value={expiration} onChange={(event) => setExpiration(event.target.value)} placeholder="MM/YY" />
@@ -195,7 +201,9 @@ function CheckoutPage() {
                       <input value={cvv} onChange={(event) => setCvv(event.target.value)} placeholder="123" />
                     </label>
                   </div>
-                  <Button type="button" disabled={loading} onClick={() => void handleContinue()}>
+                  <Button type="button" disabled={loading} onClick={() => void handleContinue()}
+                    style={{ marginTop: "1rem" }}   
+                  >
                     {loading ? "Processing..." : "Continue"}
                   </Button>
                 </div>
@@ -213,18 +221,6 @@ function CheckoutPage() {
           </div>
         )}
 
-        {webhookMessage && (
-          <div className="success-box">
-            <div>
-              <strong>{webhookMessage}</strong>
-              <p>Your electronic tickets have been generated and are ready to use.</p>
-            </div>
-            <Link className="button button-primary" to={`/booking/${bookingId}/tickets`}>
-              View my tickets
-              <Icon name="arrow-right" size={14} />
-            </Link>
-          </div>
-        )}
         {error && <div className="form-error">{error}</div>}
       </section>
     </div>

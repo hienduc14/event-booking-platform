@@ -39,7 +39,7 @@ function BookingTicketsPage() {
         />
       )}
       {!loading && !error && tickets && tickets.length > 0 && (
-        <div className="ticket-grid">
+        <div className="booking-ticket-list">
           {tickets.map((ticket) => (
             <TicketCard key={ticket.ticket_code} ticket={ticket} />
           ))}
