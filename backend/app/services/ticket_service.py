@@ -30,14 +30,16 @@ def generate_tickets_for_booking(db: Session, booking_id: int) -> List[ETicket]:
     return issued
 
 
-def release_tickets_for_booking(db: Session, booking_id: int) -> None:
-    booking = db.query(Booking).filter(Booking.booking_id == booking_id).first()
-    if not booking:
-        return
-
-    for ticket in booking.e_tickets:
+def release_tickets_safely(db: Session, booking_id: int) -> None:
+    # Fetch tickets currently held by this booking
+    tickets = db.query(ETicket).filter(ETicket.booking_id == booking_id).all()
+    for ticket in tickets:
+        # Only release if the status is Holding and it still points to this booking
         if ticket.ticket_status == "Holding":
             ticket.booking_id = None
             ticket.ticket_status = "Available"
-
     db.commit()
+
+
+def release_tickets_for_booking(db: Session, booking_id: int) -> None:
+    release_tickets_safely(db, booking_id)

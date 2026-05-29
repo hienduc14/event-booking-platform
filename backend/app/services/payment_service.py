@@ -95,39 +95,80 @@ def _fail_expired_booking(db: Session, booking: Booking) -> Tuple[None, str]:
     return None, "Payment window expired after 10 minutes. Your held seats have been released."
 
 
+def _handle_late_payment(db: Session, booking: Booking, payment_account: str) -> Dict[str, Any]:
+    # Calculate amount before releasing tickets
+    amount = booking.total_amount
+
+    # Update payment account and status
+    booking.payment_account = payment_account
+    booking.payment_status = "Refunding"
+    db.commit()
+
+    # Release tickets safely
+    from app.services.ticket_service import release_tickets_safely
+    release_tickets_safely(db, booking.booking_id)
+
+    # Create refund transaction
+    from app.models.refund_transaction import RefundTransaction
+    refund = RefundTransaction(
+        booking_id=booking.booking_id,
+        amount=amount,
+        status="PENDING",
+        reason="Late payment refund",
+        is_manual=False
+    )
+    db.add(refund)
+    db.commit()
+
+    db.refresh(booking)
+    return {
+        "message": "Payment received but booking was already expired. A refund has been automatically initiated.",
+        "status": "REFUND_INITIATED",
+        "booking_status": booking.booking_status,
+        "tickets_ready": False,
+    }
+
+
 def process_payment(db: Session, payload: PaymentProcessRequest) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
-    booking = db.query(Booking).filter(Booking.booking_id == payload.booking_id).first()
+    booking = db.query(Booking).filter(Booking.booking_id == payload.booking_id).with_for_update().first()
     if not booking:
         return None, "Booking not found"
 
-    if booking.booking_status != "PENDING_PAYMENT":
+    if booking.payment_status not in ["Pending", "Failed"]:
         return None, f"Booking status is {booking.booking_status}, cannot pay."
-
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
-    if booking.expires_at and now >= booking.expires_at:
-        return _fail_expired_booking(db, booking)
 
     if payload.payment_method == "ONLINE_BANKING":
         if not payload.refund_account or not payload.refund_account.strip():
             return None, "Refund account is required for online banking."
-        booking.payment_account = payload.refund_account.strip()
+        cleaned = re.sub(r"\s+", "", payload.refund_account.strip())
+        payment_account = f"BANK ****{cleaned[-4:]}"
     else:
         validation_error = _validate_card_input(payload)
         if validation_error:
             return None, validation_error
+        cleaned = re.sub(r"\s+", "", payload.card_number or "")
+        payment_account = f"CARD ****{cleaned[-4:]}"
 
-        normalized_card_number = re.sub(r"\s+", "", payload.card_number or "")
-        booking.payment_account = f"CARD ****{normalized_card_number[-4:]}"
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    is_late = (booking.payment_status == "Failed") or (booking.expires_at and now >= booking.expires_at)
 
+    if is_late:
+        result = _handle_late_payment(db, booking, payment_account)
+        return result, None
+
+    booking.payment_account = payment_account
     db.commit()
     time.sleep(uniform(3, 5))
 
     db.refresh(booking)
     now = datetime.now(timezone.utc).replace(tzinfo=None)
-    if booking.booking_status != "PENDING_PAYMENT":
+    if booking.payment_status not in ["Pending", "Failed"]:
         return None, f"Booking status is {booking.booking_status}, cannot pay."
-    if booking.expires_at and now >= booking.expires_at:
-        return _fail_expired_booking(db, booking)
+
+    is_late_after_sleep = (booking.payment_status == "Failed") or (booking.expires_at and now >= booking.expires_at)
+    if is_late_after_sleep:
+        result = _handle_late_payment(db, booking, payment_account)
+        return result, None
 
     booking.payment_status = "Paid"
     db.commit()

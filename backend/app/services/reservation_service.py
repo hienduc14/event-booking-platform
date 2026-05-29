@@ -42,6 +42,9 @@ def create_reservation(db: Session, request: ReservationRequest) -> Tuple[Option
         if ticket.event_day_id not in valid_day_ids:
             db.rollback()
             return None, "Selected seats must belong to the selected schedule"
+        if ticket.event_day_id != request.event_day_id:
+            db.rollback()
+            return None, "Selected seats must belong to the selected event day"
         if ticket.ticket_status != "Available" or ticket.booking_id is not None:
             db.rollback()
             return None, f"Seat {ticket.row_label or ''}{ticket.col_number or ''} is no longer available"
@@ -72,6 +75,7 @@ def cancel_expired_reservations(db: Session):
     expired_bookings = (
         db.query(Booking)
         .filter(Booking.payment_status == "Pending", Booking.created_at.isnot(None))
+        .with_for_update()
         .all()
     )
 
@@ -81,7 +85,7 @@ def cancel_expired_reservations(db: Session):
             continue
 
         for ticket in booking.e_tickets:
-            if ticket.ticket_status == "Holding":
+            if ticket.ticket_status == "Holding" and ticket.booking_id == booking.booking_id:
                 ticket.booking_id = None
                 ticket.ticket_status = "Available"
 
