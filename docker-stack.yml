@@ -1,0 +1,115 @@
+services:
+  frontend:
+    image: ${REGISTRY:-registry.example.com/event-booking}/frontend:${FRONTEND_TAG:-frontend.0.0}
+    ports:
+      - target: 80
+        published: 5173
+        protocol: tcp
+        mode: ingress
+    networks:
+      - app_net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    deploy:
+      replicas: 3
+      endpoint_mode: vip
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: start-first
+        failure_action: rollback
+        monitor: 30s
+        max_failure_ratio: 0
+      rollback_config:
+        parallelism: 1
+        delay: 10s
+        order: start-first
+        failure_action: pause
+        monitor: 30s
+        max_failure_ratio: 0
+      restart_policy:
+        condition: any
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+      placement:
+        preferences:
+          - spread: node.id
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  backend:
+    image: ${REGISTRY:-registry.example.com/event-booking}/backend:${BACKEND_TAG:-backend.0.0}
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL to the external HA database endpoint}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+      BACKEND_URL: ${BACKEND_URL:-http://localhost:8000}
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY for production}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD for production}
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-}
+      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-Event Booking Platform}
+      RESERVATION_TIMEOUT_MINUTES: ${RESERVATION_TIMEOUT_MINUTES:-10}
+    ports:
+      - target: 8000
+        published: 8000
+        protocol: tcp
+        mode: ingress
+    networks:
+      - app_net
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3).read()\" || exit 1",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    deploy:
+      replicas: 3
+      endpoint_mode: vip
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: start-first
+        failure_action: rollback
+        monitor: 30s
+        max_failure_ratio: 0
+      rollback_config:
+        parallelism: 1
+        delay: 10s
+        order: start-first
+        failure_action: pause
+        monitor: 30s
+        max_failure_ratio: 0
+      restart_policy:
+        condition: any
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+      placement:
+        preferences:
+          - spread: node.id
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  app_net:
+    driver: overlay
+    attachable: true
