@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000/api/v1";
+const API_BASE = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api/v1";
 
 type RequestOptions = {
   method?: "GET" | "POST" | "PUT" | "DELETE";
@@ -16,6 +16,40 @@ export class ApiError extends Error {
     this.status = status;
     this.details = details;
   }
+}
+
+function formatApiErrorMessage(data: unknown, fallback: string): string {
+  if (typeof data === "string") return data;
+  if (!data || typeof data !== "object") return fallback;
+
+  const detail = "detail" in data ? (data as { detail: unknown }).detail : data;
+  if (typeof detail === "string") return detail;
+
+  if (Array.isArray(detail)) {
+    const messages = detail
+      .map((item) => {
+        if (typeof item === "string") return item;
+        if (!item || typeof item !== "object") return null;
+
+        const errorItem = item as { msg?: unknown; loc?: unknown };
+        const message = typeof errorItem.msg === "string" ? errorItem.msg : null;
+        if (!message) return null;
+
+        const location = Array.isArray(errorItem.loc)
+          ? errorItem.loc.filter((part) => part !== "body").join(".")
+          : null;
+        return location ? `${location}: ${message}` : message;
+      })
+      .filter((message): message is string => Boolean(message));
+
+    if (messages.length > 0) return messages.join("; ");
+  }
+
+  if (detail && typeof detail === "object" && "message" in detail && typeof (detail as { message?: unknown }).message === "string") {
+    return (detail as { message: string }).message;
+  }
+
+  return fallback;
 }
 
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
@@ -43,13 +77,9 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   const data = isJson ? await response.json() : await response.text();
 
   if (!response.ok) {
-    const message =
-      typeof data === "object" && data !== null && "detail" in data
-        ? String((data as { detail: unknown }).detail)
-        : `Request failed with status ${response.status}`;
+    const message = formatApiErrorMessage(data, `Request failed with status ${response.status}`);
     throw new ApiError(message, response.status, data);
   }
 
   return data as T;
 }
-

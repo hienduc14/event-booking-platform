@@ -1,5 +1,7 @@
 from typing import List, Optional
+import logging
 
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, selectinload
 
 from app.models.e_ticket import ETicket
@@ -8,16 +10,29 @@ from app.models.event_day import EventDay
 from app.models.event_schedule import EventSchedule
 from app.models.ticket_config import TicketConfig
 
+logger = logging.getLogger("uvicorn.error")
+
 
 def get_event_list(db: Session, skip: int = 0, limit: int = 100) -> List[Event]:
-    return (
+    query = (
         db.query(Event)
         .filter(Event.status == "ACTIVE")
         .order_by(Event.event_id.desc())
         .offset(skip)
         .limit(limit)
-        .all()
     )
+    try:
+        compiled_query = query.statement.compile(
+            bind=db.get_bind(),
+            compile_kwargs={"literal_binds": True},
+        )
+        logger.info("Querying database for event list: %s", compiled_query)
+        events = query.all()
+        logger.info("Database returned %s events for skip=%s limit=%s", len(events), skip, limit)
+        return events
+    except SQLAlchemyError:
+        logger.exception("Database query failed for event list: skip=%s limit=%s", skip, limit)
+        raise
 
 
 def get_event_detail(db: Session, event_id: int) -> Optional[dict]:

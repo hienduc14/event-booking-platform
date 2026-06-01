@@ -99,13 +99,12 @@ function EventDetailPage() {
                     <Icon name="arrow-right" size={14} />
                   </Link>
                 </div>
-
                 <div className="schedule-card-section">
                   <h4>
                     <Icon name="ticket" size={14} /> Ticket types
                   </h4>
                   <div className="ticket-config-list">
-                    {schedule.ticket_configs.map((config) => (
+                    {schedule.ticket_configs.map( (config) => config.ticket_type !== "vip" && (
                       <div key={config.config_id} className="ticket-config-row">
                         <div className="stack-xs">
                           <strong>{config.ticket_type}</strong>
@@ -120,7 +119,6 @@ function EventDetailPage() {
                     ))}
                   </div>
                 </div>
-
                 <div className="schedule-card-section">
                   <h4>
                     <Icon name="calendar" size={14} /> Show days

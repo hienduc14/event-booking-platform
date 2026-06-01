@@ -10,7 +10,7 @@ Chay cac lenh sau trong thu muc `user/`.
 
 ```powershell
 docker build -t event-booking/backend:backend.0.0 ./backend
-docker build -t event-booking/frontend:frontend.0.0 --build-arg VITE_API_URL=http://localhost:8000/api/v1 ./frontend
+docker build -t event-booking/frontend:frontend.0.0 ./frontend
 ```
 
 ### 2. Khoi tao Docker Swarm

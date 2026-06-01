@@ -18,7 +18,7 @@ export function CustomerLayout() {
               Home
             </NavLink>
             <NavLink to="/events">Events</NavLink>
-            <NavLink to="/tickets/lookup">Ticket lookup</NavLink>
+            {/* <NavLink to="/tickets/lookup">Ticket lookup</NavLink> */}
           </nav>
           <div className="site-header-actions">
             <Link to="/events" className="button button-primary button-sm">
